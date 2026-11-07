@@ -2,7 +2,7 @@
 title: Hand-Tracked Space Shooter
 slug: hand-tracked-shooter
 island: harbor
-order: 9
+order: 11
 team: Team project
 role: Developer
 engine: [OpenCV]

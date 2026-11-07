@@ -1,4 +1,5 @@
-import { forwardRef, type ReactNode } from 'react'
+import { forwardRef, useState, type ReactNode } from 'react'
+import { useIsMobile } from '../hooks'
 import { journey, profile, projectBySlug, skills, projects } from '../content'
 import { STOPS, islandById } from '../world/layout'
 import { Chips, LiteYouTube, ProjectLinks } from './bits'
@@ -44,7 +45,34 @@ export function HomeStop() {
 
 export function ProjectStop({ slug, n }: { slug: string; n: number }) {
   const p = projectBySlug(slug)
+  const mobile = useIsMobile()
+  const [show, setShow] = useState<'none' | 'video' | 'story'>('none')
   if (!p) return null
+  const toggle = (k: 'video' | 'story') => setShow(show === k ? 'none' : k)
+
+  if (mobile)
+    return (
+      <>
+        <h2>{p.title}</h2>
+        <p className="lead">{p.summary}</p>
+        <Chips items={[p.team, p.role, p.engine[0]]} />
+        <div className="actions tight">
+          {p.video && (
+            <button className={show === 'video' ? 'btn primary' : 'btn'} aria-expanded={show === 'video'} onClick={() => toggle('video')}>
+              ▶ Watch
+            </button>
+          )}
+          <button className={show === 'story' ? 'btn primary' : 'btn'} aria-expanded={show === 'story'} onClick={() => toggle('story')}>
+            How I built it
+          </button>
+        </div>
+        {show === 'video' && p.video && <LiteYouTube id={p.video} title={p.title} poster={p.thumbnail} />}
+        {show === 'story' && <div className="prose reveal" dangerouslySetInnerHTML={{ __html: p.html }} />}
+        <ProjectLinks p={p} />
+        <p className="muted small">Island {n} of {ISLAND_PROJECTS.length}</p>
+      </>
+    )
+
   return (
     <>
       <h2>{p.title}</h2>
@@ -58,55 +86,103 @@ export function ProjectStop({ slug, n }: { slug: string; n: number }) {
   )
 }
 
+function ProofLinks({ proof }: { proof: string[] }) {
+  return (
+    <span className="proof">
+      {proof.map((slug) => {
+        const p = projectBySlug(slug)
+        if (!p) return null
+        const target = p.island === 'harbor' ? 'harbor' : p.slug
+        return (
+          <button key={slug} className="proof-link" onClick={() => jump(target)}>
+            {p.title}
+          </button>
+        )
+      })}
+    </span>
+  )
+}
+
 export function WorkshopStop() {
+  const mobile = useIsMobile()
+  const [picked, setPicked] = useState<string | null>(null)
   return (
     <>
       <h2>Skills and tools</h2>
-      <p className="lead">Every skill links to the work that shows it.</p>
-      {skills.map((g) => (
-        <div key={g.name} className="skill-group">
-          <h3>{g.name}</h3>
-          <ul className="skills">
-            {g.skills.map((s) => (
-              <li key={s.name}>
-                <span className="skill-name">{s.name}</span>
-                {s.proof.length > 0 && (
-                  <span className="proof">
-                    {s.proof.map((slug) => {
-                      const p = projectBySlug(slug)
-                      if (!p) return null
-                      const target = p.island === 'harbor' ? 'harbor' : p.slug
-                      return (
-                        <button key={slug} className="proof-link" onClick={() => jump(target)}>
-                          {p.title}
-                        </button>
-                      )
-                    })}
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+      <p className="lead">{mobile ? 'Tap a skill to see where I used it.' : 'Every skill links to the work that shows it.'}</p>
+      {skills.map((g) => {
+        if (mobile) {
+          const sel = g.skills.find((s) => s.name === picked)
+          return (
+            <div key={g.name} className="skill-group">
+              <h3>{g.name}</h3>
+              <div className="skill-cloud">
+                {g.skills.map((s) => (
+                  <button
+                    key={s.name}
+                    className={picked === s.name ? 'chip-btn on' : 'chip-btn'}
+                    aria-pressed={picked === s.name}
+                    onClick={() => setPicked(picked === s.name ? null : s.name)}
+                  >
+                    {s.name}
+                    {s.proof.length > 0 && <sup>{s.proof.length}</sup>}
+                  </button>
+                ))}
+              </div>
+              {sel && (
+                <div className="skill-proof reveal">
+                  {sel.proof.length ? <>Seen in <ProofLinks proof={sel.proof} /></> : <span className="muted">Project link coming soon.</span>}
+                </div>
+              )}
+            </div>
+          )
+        }
+        return (
+          <div key={g.name} className="skill-group">
+            <h3>{g.name}</h3>
+            <ul className="skills">
+              {g.skills.map((s) => (
+                <li key={s.name}>
+                  <span className="skill-name">{s.name}</span>
+                  {s.proof.length > 0 && <ProofLinks proof={s.proof} />}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      })}
     </>
   )
 }
 
 export function JourneyStop() {
+  const mobile = useIsMobile()
   return (
     <>
       <h2>Journey</h2>
       <p className="lead">Education, leadership and work, newest first.</p>
       <ol className="timeline">
-        {journey.map((e) => (
-          <li key={e.title} className={`kind-${e.kind}`}>
-            {e.when && <span className="when">{e.when}</span>}
-            <strong>{e.title}</strong>
-            <span className="where">{e.where}</span>
-            {e.text && <p>{e.text}</p>}
-          </li>
-        ))}
+        {journey.map((e) =>
+          mobile ? (
+            <li key={e.title} className={`kind-${e.kind}`}>
+              <details>
+                <summary>
+                  {e.when && <span className="when">{e.when}</span>}
+                  <strong>{e.title}</strong>
+                  <span className="where">{e.where}</span>
+                </summary>
+                {e.text && <p>{e.text}</p>}
+              </details>
+            </li>
+          ) : (
+            <li key={e.title} className={`kind-${e.kind}`}>
+              {e.when && <span className="when">{e.when}</span>}
+              <strong>{e.title}</strong>
+              <span className="where">{e.where}</span>
+              {e.text && <p>{e.text}</p>}
+            </li>
+          ),
+        )}
       </ol>
     </>
   )

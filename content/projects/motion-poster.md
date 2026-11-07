@@ -2,7 +2,7 @@
 title: Motion Graphics Poster
 slug: motion-poster
 island: harbor
-order: 12
+order: 14
 team: Solo project
 role: Motion designer
 engine: [After Effects]

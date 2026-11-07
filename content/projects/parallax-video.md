@@ -2,7 +2,7 @@
 title: 2.5D Parallax Video
 slug: parallax-video
 island: harbor
-order: 14
+order: 16
 team: Solo project
 role: Motion designer
 engine: [After Effects]

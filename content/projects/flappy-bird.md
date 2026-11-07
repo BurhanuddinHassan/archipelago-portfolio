@@ -2,7 +2,7 @@
 title: Flappy Bird, Winter Twist
 slug: flappy-bird
 island: harbor
-order: 8
+order: 10
 team: Team project
 role: Programmer
 engine: [Unity, C#]

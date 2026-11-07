@@ -2,7 +2,7 @@
 title: VR Theme-Song Recreation (course lab)
 slug: phineas-ferb-vr
 island: harbor
-order: 10
+order: 12
 team: Team project
 role: Developer
 engine: [Unity, XR Interaction Toolkit]

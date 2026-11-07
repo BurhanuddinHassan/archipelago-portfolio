@@ -2,7 +2,7 @@
 title: Card Solitaire
 slug: card-solitaire
 island: harbor
-order: 7
+order: 9
 team: Solo project
 role: Sole developer
 engine: [Unity, C#, DOTween]

@@ -2,7 +2,7 @@
 title: Coverall Product Animation
 slug: coverall-animation
 island: harbor
-order: 11
+order: 13
 team: Solo project
 role: Motion designer
 engine: [After Effects]

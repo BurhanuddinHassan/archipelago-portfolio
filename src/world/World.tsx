@@ -46,7 +46,8 @@ function ViewOffset() {
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
     if (size.width <= 820) {
-      cam.clearViewOffset()
+      // Phone: text cards cover the lower half, so lift the picture and keep the Pilot in the top third.
+      cam.setViewOffset(size.width, size.height, 0, size.height * 0.2, size.width, size.height)
     } else {
       const panel = Math.min(600, Math.max(380, size.width * 0.4))
       cam.setViewOffset(size.width, size.height, -panel / 2, 0, size.width, size.height)
@@ -181,7 +182,7 @@ const smooth = (a: number, b: number, x: number) => {
 }
 
 const CAM_DESKTOP = new THREE.Vector3(11, 7.5, 15)
-const CAM_MOBILE = new THREE.Vector3(10, 7, 14)
+const CAM_MOBILE = new THREE.Vector3(13, 10, 19)
 
 function PilotRig() {
   const anchors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])

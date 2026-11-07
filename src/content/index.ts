@@ -63,6 +63,7 @@ export const projects: Project[] = Object.values(files)
       html: marked.parse(m[2]) as string,
     } as unknown as Project
   })
+  .filter((p) => !(p as Project & { draft?: boolean }).draft)
   .sort((a, b) => a.order - b.order)
 
 export const profile = YAML.parse(profileRaw) as Profile

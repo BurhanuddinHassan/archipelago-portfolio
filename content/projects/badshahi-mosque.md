@@ -2,7 +2,7 @@
 title: Badshahi Mosque Mini-Doc
 slug: badshahi-mosque
 island: harbor
-order: 13
+order: 15
 team: Solo project
 role: Editor
 engine: [After Effects]

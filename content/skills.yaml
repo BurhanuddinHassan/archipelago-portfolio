@@ -5,14 +5,15 @@ groups:
     skills:
       - { name: Unity, proof: [behind-the-smile, chrono-rebellion, sunken-greed, merge-defence, card-solitaire, flappy-bird] }
       - { name: Unreal Engine 5 (Blueprints), proof: [paper-plane-dash] }
-      - { name: Three.js, proof: [fruit-slice-3d] }
+      - { name: Three.js, proof: [fruit-slice-3d, blocks-builder, garganta-portal] }
   - name: Languages
     skills:
       - { name: C#, proof: [behind-the-smile, chrono-rebellion, sunken-greed, merge-defence, card-solitaire] }
       - { name: C++, proof: [] }          # TODO: which project uses C++?
-      - { name: JavaScript, proof: [fruit-slice-3d, reflex-check] }
+      - { name: JavaScript, proof: [fruit-slice-3d, blocks-builder, garganta-portal] }
       - { name: Python, proof: [] }       # TODO: was the OpenCV shooter in Python?
-      - { name: HTML / CSS, proof: [reflex-check] }
+      - { name: HTML / CSS, proof: [blocks-builder] }
+      - { name: GLSL shaders, proof: [garganta-portal] }
   - name: XR & computer vision
     skills:
       - { name: XR Interaction Toolkit, proof: [sunken-greed, phineas-ferb-vr] }

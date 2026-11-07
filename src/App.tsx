@@ -99,7 +99,8 @@ function TopBar() {
       <a className="mark" href="#home">{profile.name}</a>
       <div className="topbar-actions">
         <button className="btn small" onClick={() => showToast('Adventure Mode is coming soon. The tour is live now.')}>
-          Explore freely
+          <span className="long">Explore freely</span>
+          <span className="short">Explore</span>
         </button>
         <button className="icon-btn" onClick={toggleTheme} aria-label={theme === 'day' ? 'Switch to night' : 'Switch to day'}>
           {theme === 'day' ? '☾' : '☀'}
