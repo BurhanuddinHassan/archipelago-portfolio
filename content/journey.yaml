@@ -1,4 +1,5 @@
 # Newest first. kind: education | work | leadership | award | course
+# certs: images in public/certs/<file>.webp (+ <file>-thumb.webp)
 entries:
   - kind: education
     when: 2023 – 2027 (expected)
@@ -9,12 +10,9 @@ entries:
     when: TODO dates
     title: Technical Team Lead, Gameverse Society
     where: NED University, Dept. of CS & IT
-    text: Lead the technical team, covering member recruitment, workshop planning and technical execution.
-  - kind: leadership
-    when: TODO dates
-    title: Technical Lead, GameCon game jam
-    where: NED University
-    text: Ran the event's technical operations, infrastructure and auditorium display systems.
+    text: >-
+      Lead the society's technical team, covering member recruitment, workshop planning and technical execution.
+      Planned the technical setup for GameCon, the society's game jam, ahead of the event.
   - kind: award
     when: 2026
     title: Global Game Jam 2026, 6th of 25 teams
@@ -26,20 +24,27 @@ entries:
     where: Independent clients
     text: Playtesting and bug reports for Chronigma (narrative puzzle game on Steam) and an AI desktop app (ComfyUI clone).
   - kind: work
-    when: Feb – May 2026
+    when: Feb – Mar 2026
     title: IT Intern
     where: Karachi Development Authority
-    text: Observed data-centre operations, IT management and the full software development life cycle.
+    text: Internship trainee in the IT Department. Observed data-centre operations, IT management and the full software development life cycle.
+    certs:
+      - { title: KDA internship certificate, file: kda-internship }
   - kind: course
     when: 2026
-    title: Pre-Production, Post-Production and Unreal Engine courses
-    where: CEGA (Center of Excellence in Gaming and Animation)
-    text: Certified courses in game pre-production, post-production and Unreal Engine.
+    title: CEGA training programme
+    where: Center of Excellence in Gaming and Animation (Ignite, Tech Nation Pakistan)
+    text: Pre-Production (105 credit hours, storywriting, character and environment design) and Unreal Engine (100 credit hours, game development and visualisation), plus Post-Production.
+    certs:
+      - { title: Pre-Production certificate, file: cega-pre-production }
+      - { title: Unreal Engine certificate, file: cega-unreal-engine }
   - kind: work
     when: Oct – Dec 2024
     title: Graphic Design Intern
     where: Town Realtors
-    text: Branding assets, marketing materials and social media content in Photoshop, Illustrator and Canva.
+    text: Graphics designer creating branding assets, marketing materials and social media content in Photoshop, Illustrator and Canva.
+    certs:
+      - { title: Internship completion letter, file: graphic-design-internship }
   - kind: education
     when: Before 2023
     title: Cambridge O Levels and A Levels

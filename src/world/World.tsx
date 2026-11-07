@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
 import { ISLANDS, ISLAND_TOP, STOPS, islandById, stopAnchor, type IslandDef } from './layout'
 import { useStore } from '../store'
@@ -16,20 +16,29 @@ export default function World() {
   const theme = useStore((s) => s.theme)
   const mobile = useMemo(isMobile, [])
   const c = PALETTE[theme]
+  // Start at a safe resolution and let the FPS monitor raise or lower it for this device.
+  const [dpr, setDpr] = useState(mobile ? 1.25 : 1.5)
+  const maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2)
   return (
     <Canvas
-      dpr={mobile ? [1, 1.5] : [1, 2]}
+      dpr={dpr}
       camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 220, position: [10, 7, 12] }}
       gl={{ antialias: !mobile, powerPreference: 'high-performance' }}
     >
+      <PerformanceMonitor
+        onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))}
+        onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))}
+        flipflops={3}
+        onFallback={() => setDpr(0.75)}
+      />
       <color attach="background" args={[c.sky]} />
       <fog attach="fog" args={[c.sky, 30, 95]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
       <directionalLight position={[12, 20, 8]} intensity={c.sun} />
       {ISLANDS.map((i) => (
-        <Island key={i.id} def={i} grass={c.grass} rock={c.rock} night={theme === 'night'} />
+        <Island key={i.id} def={i} grass={c.grass} rock={c.rock} night={theme === 'night'} labels={!mobile} />
       ))}
-      <Clouds count={mobile ? 8 : 16} night={theme === 'night'} />
+      <Clouds count={mobile ? 6 : 16} night={theme === 'night'} />
       <PilotRig />
       <ViewOffset />
     </Canvas>
@@ -59,20 +68,20 @@ function ViewOffset() {
 
 /* ---------------- Islands (grey-box placeholders) ---------------- */
 
-function Island({ def, grass, rock, night }: { def: IslandDef; grass: string; rock: string; night: boolean }) {
+function Island({ def, grass, rock, night, labels }: { def: IslandDef; grass: string; rock: string; night: boolean; labels: boolean }) {
   const r = def.radius
   return (
     <group position={def.position}>
       <mesh position={[0, ISLAND_TOP / 2, 0]}>
         <cylinderGeometry args={[r, r * 0.92, ISLAND_TOP, 9]} />
-        <meshStandardMaterial color={grass} flatShading roughness={1} />
+        <meshLambertMaterial color={grass} flatShading />
       </mesh>
       <mesh position={[0, -r * 0.6, 0]} rotation={[Math.PI, 0, 0]}>
         <coneGeometry args={[r * 0.92, r * 1.2, 7]} />
-        <meshStandardMaterial color={rock} flatShading roughness={1} />
+        <meshLambertMaterial color={rock} flatShading />
       </mesh>
       <Landmark def={def} night={night} />
-      <IslandLabel def={def} />
+      {labels && <IslandLabel def={def} />}
     </group>
   )
 }
@@ -90,7 +99,7 @@ function IslandLabel({ def }: { def: IslandDef }) {
 /** One accent-coloured block per island so the greybox reads; replaced by real dioramas later. */
 function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
   const y = ISLAND_TOP
-  const mat = <meshStandardMaterial color={def.accent} flatShading roughness={0.9} />
+  const mat = <meshLambertMaterial color={def.accent} flatShading />
   const lamp = night ? (
     <mesh position={[0, y + 2.6, 0]}>
       <sphereGeometry args={[0.18, 8, 8]} />
@@ -102,7 +111,7 @@ function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
       <group>
         <mesh position={[-1.5, y + 1, -1]}>
           <boxGeometry args={[2.6, 2, 2.2]} />
-          <meshStandardMaterial color="#F4F1EA" flatShading />
+          <meshLambertMaterial color="#F4F1EA" flatShading />
         </mesh>
         <mesh position={[-1.5, y + 2.6, -1]} rotation={[0, Math.PI / 4, 0]}>
           <coneGeometry args={[2.1, 1.3, 4]} />
@@ -111,7 +120,7 @@ function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
         {/* cinema screen */}
         <mesh position={[-3.5, y + 1.3, -4]}>
           <boxGeometry args={[2.4, 1.4, 0.12]} />
-          <meshStandardMaterial color="#2a2a30" />
+          <meshLambertMaterial color="#2a2a30" />
         </mesh>
         {/* post box */}
         <mesh position={[4.5, y + 0.6, -3.2]}>
@@ -121,7 +130,7 @@ function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
         {/* launch pad */}
         <mesh position={[3, y + 0.03, 3]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[1, 6]} />
-          <meshStandardMaterial color="#F4F1EA" />
+          <meshLambertMaterial color="#F4F1EA" />
         </mesh>
         {lamp}
       </group>
@@ -165,7 +174,7 @@ function Clouds({ count, night }: { count: number; night: boolean }) {
           {[[-1, 0, 0, 1], [0, 0.3, 0, 1.3], [1.1, 0, 0.2, 0.9]].map(([x, y, z, s], j) => (
             <mesh key={j} position={[x, y, z]} scale={s}>
               <icosahedronGeometry args={[1, 0]} />
-              <meshStandardMaterial color={color} flatShading roughness={1} />
+              <meshLambertMaterial color={color} flatShading />
             </mesh>
           ))}
         </group>
@@ -255,23 +264,23 @@ function PilotPlaceholder() {
     <group scale={0.9}>
       <mesh position={[-0.14, 0.3, 0]}>
         <cylinderGeometry args={[0.11, 0.11, 0.6, 6]} />
-        <meshStandardMaterial color="#3B5A8C" flatShading />
+        <meshLambertMaterial color="#3B5A8C" flatShading />
       </mesh>
       <mesh position={[0.14, 0.3, 0]}>
         <cylinderGeometry args={[0.11, 0.11, 0.6, 6]} />
-        <meshStandardMaterial color="#3B5A8C" flatShading />
+        <meshLambertMaterial color="#3B5A8C" flatShading />
       </mesh>
       <mesh position={[0, 0.85, 0]}>
         <boxGeometry args={[0.6, 0.6, 0.38]} />
-        <meshStandardMaterial color="#1F1F22" flatShading />
+        <meshLambertMaterial color="#1F1F22" flatShading />
       </mesh>
       <mesh position={[0, 1.55, 0]}>
         <icosahedronGeometry args={[0.45, 1]} />
-        <meshStandardMaterial color="#A86F4C" flatShading />
+        <meshLambertMaterial color="#A86F4C" flatShading />
       </mesh>
       <mesh position={[0, 1.78, -0.05]} scale={[1.05, 0.75, 1.05]}>
         <icosahedronGeometry args={[0.45, 0]} />
-        <meshStandardMaterial color="#17161A" flatShading />
+        <meshLambertMaterial color="#17161A" flatShading />
       </mesh>
     </group>
   )
@@ -291,7 +300,7 @@ function PaperPlane() {
   }, [])
   return (
     <mesh geometry={geo} scale={1.1}>
-      <meshStandardMaterial color="#FAF7F0" side={THREE.DoubleSide} flatShading />
+      <meshLambertMaterial color="#FAF7F0" side={THREE.DoubleSide} flatShading />
     </mesh>
   )
 }

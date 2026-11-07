@@ -36,7 +36,8 @@ export type Profile = {
 }
 
 export type SkillGroup = { name: string; skills: { name: string; proof: string[] }[] }
-export type JourneyEntry = { kind: string; when: string; title: string; where: string; text: string }
+export type Cert = { title: string; file: string }
+export type JourneyEntry = { kind: string; when: string; title: string; where: string; text: string; certs?: Cert[] }
 
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/
 

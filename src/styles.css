@@ -3,6 +3,7 @@
   --cloud: #f4f1ea;
   --panel: #faf7f0;
   --glass: rgba(250, 247, 240, 0.72);
+  --glass-solid: rgba(250, 247, 240, 0.86);
   --text: #1e1e24;
   --muted: #5b5b66;
   --line: #ddd7cb;
@@ -20,6 +21,7 @@
   --cloud: #2a3142;
   --panel: #222838;
   --glass: rgba(34, 40, 56, 0.72);
+  --glass-solid: rgba(34, 40, 56, 0.88);
   --text: #edebe6;
   --muted: #a6a9b4;
   --line: #394155;
@@ -153,12 +155,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- progress rail ---------- */
 .rail { position: fixed; z-index: 4; left: 14px; top: 50%; transform: translateY(-50%); }
-.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.rail a { display: flex; align-items: center; gap: 8px; text-decoration: none; padding: 3px; }
+.rail ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.rail a { position: relative; display: grid; place-items: center; width: 22px; height: 22px; text-decoration: none; border-radius: 50%; }
 .rail .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--panel); border: 2px solid var(--text); opacity: 0.55; transition: transform 0.2s, opacity 0.2s; }
 .rail a.on .dot { background: var(--brand); border-color: var(--brand); opacity: 1; transform: scale(1.35); }
-.rail-label { font-size: 0.78rem; background: var(--panel); padding: 2px 8px; border-radius: 999px; opacity: 0; transform: translateX(-4px); transition: 0.2s; white-space: nowrap; }
-.rail a:hover .rail-label, .rail a:focus-visible .rail-label { opacity: 1; transform: none; }
+.rail-label { position: absolute; left: 26px; top: 50%; transform: translate(-4px, -50%); pointer-events: none; font-size: 0.78rem; background: var(--panel); padding: 2px 8px; border-radius: 999px; opacity: 0; transition: 0.2s; white-space: nowrap; }
+.rail a:hover .rail-label, .rail a:focus-visible .rail-label { opacity: 1; transform: translate(0, -50%); }
 .rail-label { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
 
 /* ---------- floating bits ---------- */
@@ -181,6 +183,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   font: 600 12px Fredoka, sans-serif; background: rgba(250, 247, 240, 0.92); color: #1e1e24; padding: 3px 10px; border-radius: 999px;
   border-bottom: 3px solid; white-space: nowrap; pointer-events: none; user-select: none;
 }
+
+/* ---------- certificates ---------- */
+.certs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.cert { display: grid; gap: 4px; width: 132px; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--cloud); text-align: left; font-size: 0.75rem; color: var(--muted); }
+.cert img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; background: #fff; }
+.cert:hover { border-color: var(--accent); }
+.lightbox { position: fixed; inset: 0; z-index: 30; background: rgba(10, 14, 22, 0.82); display: grid; place-items: center; padding: 20px; animation: fade 0.2s; }
+.lightbox figure { margin: 0; max-width: min(1100px, 100%); max-height: 100%; display: grid; gap: 10px; }
+.lightbox img { max-width: 100%; max-height: calc(100svh - 110px); object-fit: contain; border-radius: 8px; background: #fff; }
+.lightbox figcaption { display: flex; justify-content: space-between; gap: 12px; color: #f4f1ea; font-size: 0.9rem; }
+.lightbox figcaption a { color: #f4f1ea; }
+.lightbox-close { position: fixed; top: 14px; right: 14px; }
 
 /* ---------- shared bits for compact layouts ---------- */
 .short { display: none; }
@@ -231,12 +245,13 @@ button { font: inherit; color: inherit; cursor: pointer; }
   /* each stop is one screen: the top ~45% stays clear so the Pilot and islands show through */
   .stop { min-height: 100svh; padding: 46svh 12px 28px; align-items: flex-start; }
   .stop:first-child { padding-top: 44svh; }
-  .panel { padding: 20px 18px; }
+  .panel { padding: 20px 18px; background: var(--glass-solid); -webkit-backdrop-filter: none; backdrop-filter: none; }
   .panel h1 { font-size: 2rem; }
   .panel h2 { font-size: 1.6rem; }
   .lead { font-size: 1rem; }
   .rail { left: 12px; top: calc(var(--top-h) + 2px); transform: none; }
-  .rail ol { display: flex; gap: 2px; background: var(--glass); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); padding: 5px 8px; border-radius: 999px; }
+  .rail ol { display: flex; gap: 2px; background: var(--glass-solid); padding: 2px 6px; border-radius: 999px; }
+  .rail a { width: 18px; height: 18px; }
   .rail .dot { width: 7px; height: 7px; border-width: 1.5px; }
   .rail-label { display: none; }
   .echo { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 10px 14px; }
@@ -246,7 +261,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .short { display: inline; }
   .btn.small { padding: 6px 12px; font-size: 0.8rem; }
   .icon-btn { width: 34px; height: 34px; }
-  .island-label { font-size: 10px; padding: 2px 7px; }
+  .cert { width: 112px; }
   .mobile-notice { top: calc(var(--top-h) + 34px); bottom: auto; }
   .topbar::before { content: ''; position: absolute; inset: 0 0 -28px 0; background: linear-gradient(var(--sky) 55%, transparent); pointer-events: none; z-index: -1; }
   .subline { display: none; }

@@ -5,6 +5,8 @@ import { STOPS, islandById } from '../world/layout'
 import { Chips, LiteYouTube, ProjectLinks } from './bits'
 import Harbor from './Harbor'
 import ContactForm from './ContactForm'
+import Lightbox, { CertThumbs } from './Lightbox'
+import type { Cert } from '../content'
 
 const ISLAND_PROJECTS = projects.filter((p) => p.island === p.slug)
 
@@ -157,10 +159,12 @@ export function WorkshopStop() {
 
 export function JourneyStop() {
   const mobile = useIsMobile()
+  const [cert, setCert] = useState<Cert | null>(null)
+  const certCount = journey.reduce((n, e) => n + (e.certs?.length ?? 0), 0)
   return (
     <>
       <h2>Journey</h2>
-      <p className="lead">Education, leadership and work, newest first.</p>
+      <p className="lead">Education, leadership and work, newest first. {certCount} certificates inside.</p>
       <ol className="timeline">
         {journey.map((e) =>
           mobile ? (
@@ -173,6 +177,7 @@ export function JourneyStop() {
                 </summary>
                 {e.text && <p>{e.text}</p>}
               </details>
+              <CertThumbs certs={e.certs} onOpen={setCert} />
             </li>
           ) : (
             <li key={e.title} className={`kind-${e.kind}`}>
@@ -180,10 +185,12 @@ export function JourneyStop() {
               <strong>{e.title}</strong>
               <span className="where">{e.where}</span>
               {e.text && <p>{e.text}</p>}
+              <CertThumbs certs={e.certs} onOpen={setCert} />
             </li>
           ),
         )}
       </ol>
+      {cert && <Lightbox cert={cert} onClose={() => setCert(null)} />}
     </>
   )
 }
