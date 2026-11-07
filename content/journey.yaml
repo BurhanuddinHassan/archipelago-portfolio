@@ -1,0 +1,47 @@
+# Newest first. kind: education | work | leadership | award | course
+entries:
+  - kind: education
+    when: 2023 – 2027 (expected)
+    title: BS Computer Science (Gaming & Animation)
+    where: NED University of Engineering and Technology
+    text: Final year. Focus on game engine architecture, AI behaviour systems and 3D mechanics.
+  - kind: leadership
+    when: TODO dates
+    title: Technical Team Lead, Gameverse Society
+    where: NED University, Dept. of CS & IT
+    text: Lead the technical team, covering member recruitment, workshop planning and technical execution.
+  - kind: leadership
+    when: TODO dates
+    title: Technical Lead, GameCon game jam
+    where: NED University
+    text: Ran the event's technical operations, infrastructure and auditorium display systems.
+  - kind: award
+    when: 2026
+    title: Global Game Jam 2026, 6th of 25 teams
+    where: Behind the Smile
+    text: Gameplay programmer on a 48-hour team project.
+  - kind: work
+    when: May 2026
+    title: Freelance QA Tester
+    where: Independent clients
+    text: Playtesting and bug reports for Chronigma (narrative puzzle game on Steam) and an AI desktop app (ComfyUI clone).
+  - kind: work
+    when: Feb – May 2026
+    title: IT Intern
+    where: Karachi Development Authority
+    text: Observed data-centre operations, IT management and the full software development life cycle.
+  - kind: course
+    when: 2026
+    title: Pre-Production, Post-Production and Unreal Engine courses
+    where: CEGA (Center of Excellence in Gaming and Animation)
+    text: Certified courses in game pre-production, post-production and Unreal Engine.
+  - kind: work
+    when: Oct – Dec 2024
+    title: Graphic Design Intern
+    where: Town Realtors
+    text: Branding assets, marketing materials and social media content in Photoshop, Illustrator and Canva.
+  - kind: education
+    when: Before 2023
+    title: Cambridge O Levels and A Levels
+    where: Beaconhouse School System · Highbrow College
+    text: ""

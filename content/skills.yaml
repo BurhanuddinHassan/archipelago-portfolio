@@ -1,0 +1,30 @@
+# Each skill lists the project slugs that prove it.
+# Skills with an empty "proof" list are shown without links. TODO: add evidence or remove them.
+groups:
+  - name: Engines
+    skills:
+      - { name: Unity, proof: [behind-the-smile, chrono-rebellion, sunken-greed, merge-defence, card-solitaire, flappy-bird] }
+      - { name: Unreal Engine 5 (Blueprints), proof: [paper-plane-dash] }
+      - { name: Three.js, proof: [fruit-slice-3d] }
+  - name: Languages
+    skills:
+      - { name: C#, proof: [behind-the-smile, chrono-rebellion, sunken-greed, merge-defence, card-solitaire] }
+      - { name: C++, proof: [] }          # TODO: which project uses C++?
+      - { name: JavaScript, proof: [fruit-slice-3d, reflex-check] }
+      - { name: Python, proof: [] }       # TODO: was the OpenCV shooter in Python?
+      - { name: HTML / CSS, proof: [reflex-check] }
+  - name: XR & computer vision
+    skills:
+      - { name: XR Interaction Toolkit, proof: [sunken-greed, phineas-ferb-vr] }
+      - { name: OpenXR, proof: [] }       # TODO: evidence
+      - { name: Vuforia, proof: [] }      # TODO: evidence
+      - { name: OpenCV, proof: [hand-tracked-shooter] }
+      - { name: MediaPipe, proof: [] }    # TODO: evidence
+  - name: Art, motion & video
+    skills:
+      - { name: After Effects, proof: [coverall-animation, motion-poster, badshahi-mosque, parallax-video] }
+      - { name: Blender (character modelling, Mixamo rigging), proof: [] }  # proof: this portfolio's avatar
+      - { name: Photoshop / Illustrator, proof: [] }
+  - name: QA
+    skills:
+      - { name: Playtesting & bug reporting, proof: [] }  # Chronigma (Steam), ComfyUI-clone desktop app
