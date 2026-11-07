@@ -10,7 +10,7 @@
   --brand: #f26b3a;
   --brand-ink: #ffffff;
   --accent: var(--brand);
-  --panel-w: clamp(380px, 40vw, 600px);
+  --panel-w: clamp(440px, 44vw, 760px);
   --rail-w: 44px;
   --top-h: 56px;
   --radius: 14px;
@@ -55,6 +55,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .stop { min-height: 100vh; padding: calc(var(--top-h) + 24px) 28px 48px calc(var(--rail-w) + 12px); display: flex; align-items: center; }
 .panel {
   width: 100%;
+  max-width: 720px;
   background: var(--glass);
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   backdrop-filter: blur(12px) saturate(1.2);
@@ -164,6 +165,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .rail-label { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
 
 /* ---------- floating bits ---------- */
+.drag-hint { position: fixed; z-index: 3; right: 24px; bottom: 92px; font-size: 0.8rem; color: var(--muted); background: var(--glass); padding: 4px 10px; border-radius: 999px; pointer-events: none; }
 .echo {
   position: fixed; z-index: 6; right: 20px; bottom: 20px; padding: 12px 18px; border-radius: 999px; border: 0;
   background: var(--text); color: var(--panel); font-weight: 600; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
@@ -254,6 +256,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .rail a { width: 18px; height: 18px; }
   .rail .dot { width: 7px; height: 7px; border-width: 1.5px; }
   .rail-label { display: none; }
+  .drag-hint { display: none; }
   .echo { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 10px 14px; }
   .topbar { padding: 0 10px; }
   .mark { font-size: 0.9rem; white-space: nowrap; }

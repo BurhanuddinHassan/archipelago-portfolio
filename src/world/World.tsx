@@ -10,6 +10,9 @@ const PALETTE = {
   night: { sky: '#1C2333', grass: '#4F6B45', rock: '#3E3833', hemiSky: '#8aa0d0', hemiGround: '#4a4658', sun: 0.4, hemi: 0.9 },
 }
 
+/** Must match --panel-w in styles.css: clamp(440px, 44vw, 760px). */
+export const panelWidth = (w: number) => Math.min(760, Math.max(440, w * 0.44))
+
 const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches
 
 export default function World() {
@@ -58,7 +61,7 @@ function ViewOffset() {
       // Phone: text cards cover the lower half, so lift the picture and keep the Pilot in the top third.
       cam.setViewOffset(size.width, size.height, 0, size.height * 0.2, size.width, size.height)
     } else {
-      const panel = Math.min(600, Math.max(380, size.width * 0.4))
+      const panel = panelWidth(size.width)
       cam.setViewOffset(size.width, size.height, -panel / 2, 0, size.width, size.height)
     }
     cam.updateProjectionMatrix()
@@ -197,7 +200,9 @@ function PilotRig() {
   const anchors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
   const pilot = useRef<THREE.Group>(null)
   const plane = useRef<THREE.Group>(null)
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
+  const orbit = useLookAround(gl.domElement)
+  const sph = useMemo(() => new THREE.Spherical(), [])
   const camTarget = useRef(new THREE.Vector3())
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), next: new THREE.Vector3(), look: new THREE.Vector3() }), [])
   const first = useRef(true)
@@ -238,7 +243,17 @@ function PilotRig() {
     }
 
     // camera follows the pilot with damping
-    const desired = tmp.look.copy(tmp.pos).add(camOffset)
+    // look-around: rotate the follow offset around the Pilot, then drift back when idle or on the next stop
+    const o = orbit.current
+    if (!o.dragging && (state.clock.elapsedTime - o.lastInput > 2.5 || flying)) {
+      const ease = 1 - Math.exp(-dt * 2)
+      o.yaw += (0 - o.yaw) * ease
+      o.pitch += (0 - o.pitch) * ease
+    }
+    sph.setFromVector3(camOffset)
+    sph.theta += o.yaw
+    sph.phi = Math.min(1.35, Math.max(0.35, sph.phi + o.pitch))
+    const desired = tmp.look.copy(tmp.pos).add(new THREE.Vector3().setFromSpherical(sph))
     const k = first.current ? 1 : 1 - Math.exp(-dt * 3.5)
     camera.position.lerp(desired, k)
     camTarget.current.lerp(tmp.pos, k)
@@ -256,6 +271,56 @@ function PilotRig() {
       </group>
     </>
   )
+}
+
+/**
+ * Desktop-only look-around: drag on the 3D view to orbit the camera around the Pilot.
+ * The mouse wheel is left alone so it keeps scrolling the tour. Touch is ignored so phones scroll normally.
+ */
+function useLookAround(el: HTMLElement) {
+  const orbit = useRef({ yaw: 0, pitch: 0, dragging: false, lastInput: -10, x: 0, y: 0 })
+  const clock = useThree((s) => s.clock)
+  useEffect(() => {
+    const o = orbit.current
+    el.style.cursor = 'grab'
+    el.style.touchAction = 'pan-y'
+    const down = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return
+      o.dragging = true
+      o.x = e.clientX
+      o.y = e.clientY
+      el.setPointerCapture(e.pointerId)
+      el.style.cursor = 'grabbing'
+    }
+    const move = (e: PointerEvent) => {
+      if (!o.dragging) return
+      o.yaw -= (e.clientX - o.x) * 0.006
+      o.pitch -= (e.clientY - o.y) * 0.004
+      o.yaw = Math.max(-2.2, Math.min(2.2, o.yaw))
+      o.pitch = Math.max(-0.6, Math.min(0.5, o.pitch))
+      o.x = e.clientX
+      o.y = e.clientY
+      o.lastInput = clock.elapsedTime
+    }
+    const up = (e: PointerEvent) => {
+      if (!o.dragging) return
+      o.dragging = false
+      o.lastInput = clock.elapsedTime
+      el.releasePointerCapture?.(e.pointerId)
+      el.style.cursor = 'grab'
+    }
+    el.addEventListener('pointerdown', down)
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+    return () => {
+      el.removeEventListener('pointerdown', down)
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+    }
+  }, [el, clock])
+  return orbit
 }
 
 /** Chibi stand-in until the real Blender GLB arrives (8–11 Nov). */

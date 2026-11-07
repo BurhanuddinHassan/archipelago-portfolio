@@ -83,6 +83,7 @@ export default function App() {
         <footer className="foot">© {new Date().getFullYear()} {profile.name}. Built with Three.js and React.</footer>
       </main>
       <ProgressRail />
+      <p className="drag-hint" aria-hidden="true">Drag to look around</p>
       <EchoButton />
       <MobileNotice />
       <Toast />
