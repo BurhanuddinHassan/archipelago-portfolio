@@ -513,7 +513,7 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
   const { scene, animations } = useGLTF(PILOT_URL, DRACO_PATH)
   const group = useRef<THREE.Group>(null)
   const { actions } = useAnimations(animations, group)
-  const state = useRef({ current: '' as string, lastPose: 'ground' as PilotPose, nextFidget: 9 })
+  const state = useRef({ current: '' as string, lastPose: 'ground' as PilotPose, nextFidget: 9, greetAt: -1 })
 
   useEffect(() => {
     pilotLoaded = true
@@ -547,7 +547,22 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
     const st = state.current
     const p = pose.current
     const time = s.clock.elapsedTime
-    if (!st.current) play('Idle')
+    if (!st.current) {
+      play('Idle')
+      st.greetAt = time + 0.8 // once he's on screen, say hello
+    }
+    if (st.greetAt > 0 && time >= st.greetAt) {
+      st.greetAt = -1
+      if (p === 'ground') {
+        const wave = actions.Wave
+        if (wave) {
+          wave.setLoop(THREE.LoopOnce, 1)
+          wave.clampWhenFinished = true
+        }
+        play('Wave')
+        st.nextFidget = time + 12 + Math.random() * 6
+      }
+    }
     if (p !== st.lastPose) {
       if (p === 'board' || p === 'sail') play('Sit')
       else if (p === 'land') play('Idle')
