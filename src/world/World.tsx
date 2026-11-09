@@ -335,11 +335,13 @@ function PilotRig({ night }: { night: boolean }) {
   )
   const first = useRef(true)
   const pose = useRef<PilotPose>('ground')
-  // ?closeup in the URL frames the Pilot up close (handy for checking the model and its textures)
-  const camOffset = useMemo(() => {
-    const base = isMobile() ? CAM_MOBILE : CAM_DESKTOP
-    const z = new URLSearchParams(window.location.search).has('closeup') ? 0.22 : 1
-    return base.clone().multiplyScalar(z)
+  // The site opens on a close-up portrait of the Pilot, then pulls back to the travel framing as you start scrolling.
+  // ?closeup in the URL keeps the close-up the whole way (handy for checking the model).
+  const cam = useMemo(() => {
+    const far = isMobile() ? CAM_MOBILE : CAM_DESKTOP
+    const near = far.clone().multiplyScalar(0.24)
+    near.y = 1.1
+    return { far, near, offset: new THREE.Vector3(), hold: new URLSearchParams(window.location.search).has('closeup') }
   }, [])
 
   useFrame((state, dt) => {
@@ -416,14 +418,17 @@ function PilotRig({ night }: { night: boolean }) {
       o.yaw += (0 - o.yaw) * ease
       o.pitch += (0 - o.pitch) * ease
     }
-    sph.setFromVector3(camOffset)
+    // pulled back over the first third of a screen of scrolling, and always before the first hop aboard
+    const pull = cam.hold ? 0 : i > 0 ? 1 : Math.max(smooth(0, window.innerHeight * 0.35, window.scrollY), smooth(0.3, 0.44, p))
+    cam.offset.lerpVectors(cam.near, cam.far, pull)
+    sph.setFromVector3(cam.offset)
     sph.theta += o.yaw
     sph.phi = Math.min(1.35, Math.max(0.35, sph.phi + o.pitch))
     const desired = tmp.look.copy(tmp.pos).add(tmp.off.setFromSpherical(sph))
     const k = first.current ? 1 : 1 - Math.exp(-dt * 3.5)
     camera.position.lerp(desired, k)
     camTarget.current.lerp(tmp.pos, k)
-    camera.lookAt(camTarget.current.x, camTarget.current.y + 1, camTarget.current.z)
+    camera.lookAt(camTarget.current.x, camTarget.current.y + 1.05 - 0.1 * pull, camTarget.current.z)
     first.current = false
   })
 
@@ -516,16 +521,8 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       m.frustumCulled = false
-      // The texture atlas packs hundreds of tiny UV islands edge to edge with no padding (skin next to hair).
-      // Mipmaps average across those borders and paint peach specks into the hair at normal viewing distance,
-      // so sample the full-resolution texture directly instead.
-      const mat = m.material as THREE.MeshStandardMaterial
-      for (const tex of [mat.map, mat.normalMap, mat.roughnessMap, mat.metalnessMap]) {
-        if (!tex) continue
-        tex.generateMipmaps = false
-        tex.minFilter = THREE.LinearFilter
-        tex.needsUpdate = true
-      }
+      // (The texture atlas was re-packed with 8 px padding around every UV island by tools/rebake-character.mjs,
+      // so normal mipmapping no longer bleeds skin colour into the hair.)
     })
     for (const name of ['Wave', 'Idle_CheckWatch']) {
       const a = actions[name]
