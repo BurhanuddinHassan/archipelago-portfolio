@@ -46,7 +46,7 @@ export const STOPS: StopDef[] = [
   { id: 'harbor', label: 'More work', island: 'harbor', offset: [0, 1.2 * S] },
   { id: 'workshop', label: 'Skills', island: 'workshop', offset: [0, 1.2 * S] },
   { id: 'journey', label: 'Journey', island: 'journey', offset: [0, 1.2 * S] },
-  { id: 'cinema', label: 'Trailer', island: 'home', offset: [-3.5 * S, -1.6 * S] },
+  { id: 'cinema', label: 'Trailer', island: 'home', offset: [-4.2 * S, -1.2 * S] },
   { id: 'contact', label: 'Contact', island: 'home', offset: [3.2 * S, -2.2 * S] },
 ]
 
@@ -62,7 +62,30 @@ export const ISLAND_TOP = 0.6
 export const MOOR_DIR: [number, number] = [0.806, -0.591]
 export const MOOR_DIST = 3.0
 /** Horizontal direction from a stop towards the camera; kept free of trees so nothing blocks the view. */
-const CAM_DIR: [number, number] = [0.59, 0.806]
+export const CAM_DIR: [number, number] = [0.59, 0.806]
+/** Yaw that turns a landmark's front (+Z) towards the camera. */
+export const FACE_YAW = Math.atan2(CAM_DIR[0], CAM_DIR[1])
+
+const stopById = (id: string) => STOPS.find((s) => s.id === id)!
+/** A point near a stop: `side` along the screen-right direction, `back` away from the camera (island-local x, z). */
+function nearStop(id: string, side: number, back: number): [number, number] {
+  const o = stopById(id).offset
+  return [o[0] + MOOR_DIR[0] * side - CAM_DIR[0] * back, o[1] + MOOR_DIR[1] * side - CAM_DIR[1] * back]
+}
+
+/** Where each Home Isle piece stands (island-local x, z). */
+export const HOME_PIECES = {
+  // behind the Pilot at the Home stop; kept out of the Trailer and Contact sight-lines
+  cottage: nearStop('home', -0.8, 5.6),
+  screen: nearStop('cinema', 0, 3.2),
+  benchL: nearStop('cinema', -1.7, 1.0),
+  benchR: nearStop('cinema', 1.7, 1.0),
+  postbox: nearStop('contact', -1.7, 0.5),
+  arcade: nearStop('home', 1.2, 2.2),
+}
+
+/** Where the centrepiece of every other island stands: behind the Pilot and a little to the left, clear of the ship. */
+export const CENTREPIECE: [number, number] = [-2.0 * S, -0.6 * S]
 
 export const islandSeed = (id: string) => id.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 100000
 
@@ -82,14 +105,18 @@ export function clearSpots(def: IslandDef): [number, number, number][] {
 
 /** Footprints of the landmark placeholders (x, z, radius), relative to the island centre. */
 export function landmarkSpots(def: IslandDef): [number, number, number][] {
-  if (def.id === 'home')
+  if (def.id === 'home') {
+    const h = HOME_PIECES
     return [
-      [-1.5 * S, -1 * S, 3.4], // house
-      [-3.5 * S, -4 * S, 2.6], // cinema screen
-      [4.5 * S, -3.6 * S, 1.2], // post box
+      [...h.cottage, 3.6],
+      [...h.screen, 2.8],
+      [...h.benchL, 1.0],
+      [...h.benchR, 1.0],
+      [...h.postbox, 1.0],
+      [...h.arcade, 1.0],
     ]
-  // behind the Pilot and a little to the left, clear of the moored ship
-  return [[-2.0 * S, -0.6 * S, 2.4]]
+  }
+  return [[...CENTREPIECE, 2.6]]
 }
 
 const surfaces = new Map<string, (x: number, z: number) => number>()

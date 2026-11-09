@@ -8,6 +8,7 @@ import {
 } from './layout'
 import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
+import { HomeLandmarks } from './landmarks/Home'
 import { useStore } from '../store'
 
 const PALETTE = {
@@ -106,12 +107,13 @@ function ViewOffset() {
 /* ---------------- Islands ---------------- */
 
 function Island({ def, geometry, night, labels }: { def: IslandDef; geometry: THREE.BufferGeometry; night: boolean; labels: boolean }) {
+  const desktop = labels
   return (
     <group position={def.position}>
       <mesh geometry={geometry}>
         <meshLambertMaterial vertexColors />
       </mesh>
-      <Landmark def={def} night={night} />
+      {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <Landmark def={def} night={night} />}
       {labels && <IslandLabel def={def} />}
     </group>
   )
@@ -196,10 +198,17 @@ function SkyDome({ top, horizon }: { top: string; horizon: string }) {
 
 function IslandLabel({ def }: { def: IslandDef }) {
   const active = useStore((s) => STOPS[s.activeStop]?.island === def.id)
+  const el = useRef<HTMLDivElement>(null)
+  // Hidden during the opening close-up (labels of far islands would float over the portrait).
+  useFrame(() => {
+    if (!el.current) return
+    const show = !active && window.scrollY > window.innerHeight * 0.3
+    el.current.style.visibility = show ? 'visible' : 'hidden'
+  })
   // Keep the Html mounted and hide it: unmounting drei Html mid-frame throws a removeChild error.
   return (
     <Html position={[0, ISLAND_TOP + def.radius * 0.1 + 7, 0]} center zIndexRange={[10, 0]}>
-      <div className="island-label" style={{ borderColor: def.accent, visibility: active ? 'hidden' : 'visible' }}>{def.name}</div>
+      <div ref={el} className="island-label" style={{ borderColor: def.accent, visibility: 'hidden' }}>{def.name}</div>
     </Html>
   )
 }
@@ -216,32 +225,6 @@ function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
         <meshBasicMaterial color="#ffd98a" />
       </mesh>
     ) : null
-  if (def.id === 'home') {
-    const house = at(0)
-    const screen = at(1)
-    const post = at(2)
-    return (
-      <group>
-        <mesh position={[house[0], house[1] + 1.2, house[2]]}>
-          <boxGeometry args={[3.2, 2.4, 2.8]} />
-          <meshLambertMaterial color="#F4F1EA" flatShading />
-        </mesh>
-        <mesh position={[house[0], house[1] + 3.2, house[2]]} rotation={[0, Math.PI / 4, 0]}>
-          <coneGeometry args={[2.6, 1.6, 4]} />
-          {mat}
-        </mesh>
-        <mesh position={[screen[0], screen[1] + 1.6, screen[2]]}>
-          <boxGeometry args={[3.2, 1.8, 0.14]} />
-          <meshLambertMaterial color="#2a2a30" />
-        </mesh>
-        <mesh position={[post[0], post[1] + 0.6, post[2]]}>
-          <boxGeometry args={[0.5, 1.2, 0.5]} />
-          {mat}
-        </mesh>
-        {lamp(house)}
-      </group>
-    )
-  }
   const p = at(0)
   return (
     <group>
@@ -435,6 +418,8 @@ function PilotRig({ night }: { night: boolean }) {
   return (
     <>
       <group ref={pilot}>
+        {/* night fill light in front of the Pilot, so his face isn't lost against lit windows */}
+        {night && <pointLight position={[0, 2.4, 2.2]} color="#ffe2b8" intensity={5} distance={6} decay={1.6} />}
         <ModelGuard fallback={<PilotPlaceholder />}>
           <Suspense fallback={<PilotPlaceholder />}>
             <PilotModel pose={pose} />

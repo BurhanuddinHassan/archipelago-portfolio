@@ -273,3 +273,18 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .harbor-tools .filters::-webkit-scrollbar { display: none; }
   .chip-btn { white-space: nowrap; }
 }
+
+/* Fruit Slice arcade cabinet tooltip (3D world, desktop) */
+.arcade-tip {
+  font: 600 13px/1 Inter, system-ui, sans-serif;
+  color: #fff8ee;
+  background: #2b2730;
+  padding: 7px 11px;
+  border-radius: 999px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.18s, transform 0.18s;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+.arcade-tip.show { opacity: 1; transform: none; }
