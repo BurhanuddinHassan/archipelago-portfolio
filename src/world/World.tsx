@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Html, PerformanceMonitor } from '@react-three/drei'
+import { Html, PerformanceMonitor, useAnimations, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import { ISLANDS, ISLAND_TOP, STOPS, islandById, stopAnchor, type IslandDef } from './layout'
+import { buildIsland } from './islandGen'
 import { useStore } from '../store'
 
 const PALETTE = {
-  day: { sky: '#A9C4CC', grass: '#8DB36B', rock: '#6B5E55', hemiSky: '#ffffff', hemiGround: '#c9b9a8', sun: 2.0, hemi: 1.6 },
-  night: { sky: '#1C2333', grass: '#4F6B45', rock: '#3E3833', hemiSky: '#8aa0d0', hemiGround: '#4a4658', sun: 0.4, hemi: 0.9 },
+  day: { sky: '#A9C4CC', top: '#9ecbe0', horizon: '#f5e4d3', grass: '#8DB36B', rock: '#6B5E55', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 1.9, sunColor: '#ffe3c2', hemi: 1.5 },
+  night: { sky: '#1C2333', top: '#121a2e', horizon: '#3b3552', grass: '#4F6B45', rock: '#3E3833', hemiSky: '#8aa0d0', hemiGround: '#3a3648', sun: 0.35, sunColor: '#b8c8ff', hemi: 0.75 },
 }
 
 /** Must match --panel-w in styles.css: clamp(440px, 44vw, 760px). */
@@ -34,14 +35,14 @@ export default function World() {
         flipflops={3}
         onFallback={() => setDpr(0.75)}
       />
-      <color attach="background" args={[c.sky]} />
-      <fog attach="fog" args={[c.sky, 30, 95]} />
+      <SkyDome top={c.top} horizon={c.horizon} />
+      <fog attach="fog" args={[c.horizon, 40, 120]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
-      <directionalLight position={[12, 20, 8]} intensity={c.sun} />
+      <directionalLight position={[12, 20, 8]} intensity={c.sun} color={c.sunColor} />
       {ISLANDS.map((i) => (
-        <Island key={i.id} def={i} grass={c.grass} rock={c.rock} night={theme === 'night'} labels={!mobile} />
+        <Island key={i.id} def={i} night={theme === 'night'} labels={!mobile} />
       ))}
-      <Clouds count={mobile ? 6 : 16} night={theme === 'night'} />
+      <Clouds count={mobile ? 10 : 22} night={theme === 'night'} />
       <PilotRig />
       <ViewOffset />
     </Canvas>
@@ -71,21 +72,58 @@ function ViewOffset() {
 
 /* ---------------- Islands (grey-box placeholders) ---------------- */
 
-function Island({ def, grass, rock, night, labels }: { def: IslandDef; grass: string; rock: string; night: boolean; labels: boolean }) {
-  const r = def.radius
+/** Where props must not grow: the landmark, and every spot the Pilot stands on this island. */
+function clearSpots(def: IslandDef): [number, number, number][] {
+  const spots: [number, number, number][] = STOPS.filter((st) => st.island === def.id).map((st) => [st.offset[0], st.offset[2], 1.0])
+  if (def.id === 'home') spots.push([-1.5, -1, 2.2], [-3.5, -4, 1.6], [4.5, -3.2, 0.9], [3, 3, 1.3])
+  else spots.push([0, -1.4, 1.4])
+  return spots
+}
+
+function Island({ def, night, labels }: { def: IslandDef; night: boolean; labels: boolean }) {
+  const geometry = useMemo(
+    () => buildIsland({ radius: def.radius, seed: def.id.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 100000, top: ISLAND_TOP, keepClear: clearSpots(def) }),
+    [def],
+  )
   return (
     <group position={def.position}>
-      <mesh position={[0, ISLAND_TOP / 2, 0]}>
-        <cylinderGeometry args={[r, r * 0.92, ISLAND_TOP, 9]} />
-        <meshLambertMaterial color={grass} flatShading />
-      </mesh>
-      <mesh position={[0, -r * 0.6, 0]} rotation={[Math.PI, 0, 0]}>
-        <coneGeometry args={[r * 0.92, r * 1.2, 7]} />
-        <meshLambertMaterial color={rock} flatShading />
+      <mesh geometry={geometry}>
+        <meshLambertMaterial vertexColors />
       </mesh>
       <Landmark def={def} night={night} />
       {labels && <IslandLabel def={def} />}
     </group>
+  )
+}
+
+/** Big inverted sphere with a vertical gradient: soft pastel sky by day, deep blue by night. */
+function SkyDome({ top, horizon }: { top: string; horizon: string }) {
+  const uniforms = useMemo(() => ({ top: { value: new THREE.Color(top) }, horizon: { value: new THREE.Color(horizon) } }), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    uniforms.top.value.set(top)
+    uniforms.horizon.value.set(horizon)
+  }, [top, horizon, uniforms])
+  return (
+    <mesh scale={180} renderOrder={-1}>
+      <sphereGeometry args={[1, 32, 16]} />
+      <shaderMaterial
+        side={THREE.BackSide}
+        depthWrite={false}
+        fog={false}
+        uniforms={uniforms}
+        vertexShader={`varying vec3 vPos; void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`}
+        fragmentShader={[
+          'uniform vec3 top;',
+          'uniform vec3 horizon;',
+          'varying vec3 vPos;',
+          'void main() {',
+          '  float h = clamp(normalize(vPos).y * 2.2 + 0.45, 0.0, 1.0);',
+          '  gl_FragColor = vec4(mix(horizon, top, smoothstep(0.0, 1.0, h)), 1.0);',
+          '  #include <colorspace_fragment>',
+          '}',
+        ].join('\n')}
+      />
+    </mesh>
   )
 }
 
@@ -156,11 +194,15 @@ function Clouds({ count, night }: { count: number; night: boolean }) {
   const clouds = useMemo(() => {
     let seed = 7
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-    return Array.from({ length: count }, () => ({
-      pos: [(rnd() - 0.5) * 110, 8 + rnd() * 10, (rnd() - 0.5) * 100] as [number, number, number],
-      scale: 1.2 + rnd() * 1.8,
-      speed: 0.2 + rnd() * 0.3,
-    }))
+    // most clouds form a soft sea below the islands; a few drift high and far away
+    return Array.from({ length: count }, (_, i) => {
+      const low = i % 4 !== 0
+      return {
+        pos: [(rnd() - 0.5) * 120, low ? -16 + rnd() * 6 : 22 + rnd() * 8, (rnd() - 0.5) * 110] as [number, number, number],
+        scale: low ? 3 + rnd() * 3 : 2 + rnd() * 2,
+        speed: 0.2 + rnd() * 0.3,
+      }
+    })
   }, [count])
   const group = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
@@ -174,10 +216,10 @@ function Clouds({ count, night }: { count: number; night: boolean }) {
     <group ref={group}>
       {clouds.map((c, i) => (
         <group key={i} position={c.pos} scale={c.scale}>
-          {[[-1, 0, 0, 1], [0, 0.3, 0, 1.3], [1.1, 0, 0.2, 0.9]].map(([x, y, z, s], j) => (
-            <mesh key={j} position={[x, y, z]} scale={s}>
-              <icosahedronGeometry args={[1, 0]} />
-              <meshLambertMaterial color={color} flatShading />
+          {[[-1.3, -0.1, 0, 0.9], [-0.4, 0.25, 0.1, 1.25], [0.6, 0.2, -0.1, 1.1], [1.5, -0.1, 0.1, 0.8], [0.1, -0.2, 0.5, 0.9]].map(([x, y, z, s], j) => (
+            <mesh key={j} position={[x, y, z]} scale={[s, s * 0.8, s]}>
+              <icosahedronGeometry args={[1, 2]} />
+              <meshLambertMaterial color={color} emissive={color} emissiveIntensity={night ? 0.05 : 0.35} />
             </mesh>
           ))}
         </group>
@@ -264,7 +306,9 @@ function PilotRig() {
   return (
     <>
       <group ref={pilot}>
-        <PilotPlaceholder />
+        <Suspense fallback={<PilotPlaceholder />}>
+          <PilotModel />
+        </Suspense>
       </group>
       <group ref={plane} visible={false}>
         <PaperPlane />
@@ -322,6 +366,36 @@ function useLookAround(el: HTMLElement) {
   }, [el, clock])
   return orbit
 }
+
+const PILOT_URL = '/models/pilot.glb'
+const DRACO_PATH = '/draco/'
+const PILOT_HEIGHT = 1.8 // world units; the GLB is 1.2 tall
+
+/**
+ * Burhanuddin's character. Plays an "Idle" clip if the GLB has one (after Mixamo rigging);
+ * until then it stands still and PilotRig adds a gentle bob.
+ */
+function PilotModel() {
+  const { scene, animations } = useGLTF(PILOT_URL, DRACO_PATH)
+  const group = useRef<THREE.Group>(null)
+  const { actions, names } = useAnimations(animations, group)
+  useEffect(() => {
+    scene.traverse((o) => {
+      const m = o as THREE.Mesh
+      if (m.isMesh) m.frustumCulled = false
+    })
+  }, [scene])
+  useEffect(() => {
+    const idle = names.find((n) => /idle/i.test(n)) ?? names[0]
+    if (idle) actions[idle]?.reset().fadeIn(0.3).play()
+  }, [actions, names])
+  return (
+    <group ref={group} scale={PILOT_HEIGHT / 1.2}>
+      <primitive object={scene} />
+    </group>
+  )
+}
+useGLTF.preload(PILOT_URL, DRACO_PATH)
 
 /** Chibi stand-in until the real Blender GLB arrives (8–11 Nov). */
 function PilotPlaceholder() {
