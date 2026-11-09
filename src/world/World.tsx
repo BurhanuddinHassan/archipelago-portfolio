@@ -335,7 +335,12 @@ function PilotRig({ night }: { night: boolean }) {
   )
   const first = useRef(true)
   const pose = useRef<PilotPose>('ground')
-  const camOffset = useMemo(() => (isMobile() ? CAM_MOBILE : CAM_DESKTOP), [])
+  // ?closeup in the URL frames the Pilot up close (handy for checking the model and its textures)
+  const camOffset = useMemo(() => {
+    const base = isMobile() ? CAM_MOBILE : CAM_DESKTOP
+    const z = new URLSearchParams(window.location.search).has('closeup') ? 0.22 : 1
+    return base.clone().multiplyScalar(z)
+  }, [])
 
   useFrame((state, dt) => {
     const time = state.clock.elapsedTime
@@ -509,7 +514,18 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
     pilotLoaded = true
     scene.traverse((o) => {
       const m = o as THREE.Mesh
-      if (m.isMesh) m.frustumCulled = false
+      if (!m.isMesh) return
+      m.frustumCulled = false
+      // The texture atlas packs hundreds of tiny UV islands edge to edge with no padding (skin next to hair).
+      // Mipmaps average across those borders and paint peach specks into the hair at normal viewing distance,
+      // so sample the full-resolution texture directly instead.
+      const mat = m.material as THREE.MeshStandardMaterial
+      for (const tex of [mat.map, mat.normalMap, mat.roughnessMap, mat.metalnessMap]) {
+        if (!tex) continue
+        tex.generateMipmaps = false
+        tex.minFilter = THREE.LinearFilter
+        tex.needsUpdate = true
+      }
     })
     for (const name of ['Wave', 'Idle_CheckWatch']) {
       const a = actions[name]
