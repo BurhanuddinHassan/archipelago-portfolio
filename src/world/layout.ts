@@ -116,7 +116,7 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       [...h.arcade, 1.0],
     ]
   }
-  return [[...CENTREPIECE, 2.6]]
+  return [[...CENTREPIECE, 3.3]]
 }
 
 const surfaces = new Map<string, (x: number, z: number) => number>()

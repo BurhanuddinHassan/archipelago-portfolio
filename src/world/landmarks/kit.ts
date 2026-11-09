@@ -107,3 +107,33 @@ export function canvasTexture(w: number, h: number, draw: (ctx: CanvasRenderingC
   t.anisotropy = 4
   return t
 }
+
+/** Torus (rings, smiles, portals); `arc` < 2π gives a partial ring. Lies in the x/y plane. */
+export function torus(r: number, tube: number, color: THREE.Color, at?: [number, number, number], rot?: [number, number, number], arc = Math.PI * 2, seg = 24) {
+  const g = new THREE.TorusGeometry(r, tube, 8, seg, arc)
+  if (rot) g.applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...rot)))
+  if (at) g.translate(...at)
+  return paint(g, color)
+}
+
+/** A box stretched between two points (track segments, rails, struts). */
+export function beam(from: THREE.Vector3, to: THREE.Vector3, width: number, thick: number, color: THREE.Color) {
+  const len = from.distanceTo(to)
+  const g = new THREE.BoxGeometry(width, thick, len)
+  const m = new THREE.Matrix4().lookAt(from, to, new THREE.Vector3(0, 1, 0))
+  g.applyMatrix4(m)
+  const mid = from.clone().add(to).multiplyScalar(0.5)
+  g.translate(mid.x, mid.y, mid.z)
+  return paint(g, color)
+}
+
+/** A cog: disc plus teeth, in the x/y plane (spins around z). */
+export function gear(r: number, depth: number, teeth: number, color: THREE.Color) {
+  const parts: THREE.BufferGeometry[] = [cyl(r, r, depth, color, [0, 0, 0], [Math.PI / 2, 0, 0], 24)]
+  for (let i = 0; i < teeth; i++) {
+    const a = (i / teeth) * Math.PI * 2
+    parts.push(box([r * 0.28, r * 0.3, depth], color, [Math.cos(a) * r * 1.08, Math.sin(a) * r * 1.08, 0], [0, 0, a]))
+  }
+  parts.push(cyl(r * 0.28, r * 0.28, depth * 1.4, hex('#5f402b'), [0, 0, 0], [Math.PI / 2, 0, 0], 12))
+  return merge(parts)
+}

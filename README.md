@@ -54,13 +54,14 @@ YAML tip: if a value contains `: ` (colon + space), wrap it in quotes.
 - [x] Procedural Aloft-style islands (rolling hills, cliff band, strata underside, roots, islets)
 - [x] Sky-ship travel: the Pilot hops aboard, sits while sailing, hops off and waves
 - [x] Rigged, animated Pilot (`public/models/chibi_character.glb`, Draco)
-- [ ] Real island dioramas (accent-coloured placeholder blocks now)
+- [x] Island landmarks: Home Isle (cottage, outdoor cinema, post box, clickable Fruit Slice arcade) and one diorama per island
+  (`src/world/landmarks/`), with night lighting and small animations
 - [ ] Echo chatbot (14 Nov), contact backend (15 Nov), promo video (17–18 Nov)
 
 ## Credits
 
 - Trees, bushes, rocks, flowers, ferns, stump and log: **Ultimate Nature Pack by Quaternius**, CC0 1.0 (public domain),
   https://quaternius.com. Recoloured to the site's palette, smooth-shaded and merged into `public/models/props.glb`.
-- Island bodies, clouds, sky and the sky-ship are generated in code (`src/world/islandGen.ts`, `src/world/SkyShip.tsx`).
+- Island bodies, clouds, sky, the sky-ship and all landmarks are generated in code (`src/world/islandGen.ts`, `src/world/SkyShip.tsx`, `src/world/landmarks/`).
 - Pilot character: base mesh generated from a photo with an AI image-to-3D tool, then rigged and animated in Blender by Burhanuddin.
 - Draco decoder: Google Draco, Apache 2.0 (`public/draco/`).

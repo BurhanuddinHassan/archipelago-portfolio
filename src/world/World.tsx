@@ -9,6 +9,7 @@ import {
 import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
+import { IslandLandmark } from './landmarks/Islands'
 import { useStore } from '../store'
 
 const PALETTE = {
@@ -113,7 +114,7 @@ function Island({ def, geometry, night, labels }: { def: IslandDef; geometry: TH
       <mesh geometry={geometry}>
         <meshLambertMaterial vertexColors />
       </mesh>
-      {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <Landmark def={def} night={night} />}
+      {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} />}
       {labels && <IslandLabel def={def} />}
     </group>
   )
@@ -210,30 +211,6 @@ function IslandLabel({ def }: { def: IslandDef }) {
     <Html position={[0, ISLAND_TOP + def.radius * 0.1 + 7, 0]} center zIndexRange={[10, 0]}>
       <div ref={el} className="island-label" style={{ borderColor: def.accent, visibility: 'hidden' }}>{def.name}</div>
     </Html>
-  )
-}
-
-/** Accent-coloured placeholder buildings so each island reads; replaced by real dioramas later. */
-function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
-  const spots = landmarkSpots(def)
-  const at = (k: number): [number, number, number] => [spots[k][0], groundY(def, spots[k][0], spots[k][1]), spots[k][1]]
-  const mat = <meshLambertMaterial color={def.accent} flatShading />
-  const lamp = (p: [number, number, number]) =>
-    night ? (
-      <mesh position={[p[0], p[1] + 3.6, p[2]]}>
-        <sphereGeometry args={[0.18, 8, 8]} />
-        <meshBasicMaterial color="#ffd98a" />
-      </mesh>
-    ) : null
-  const p = at(0)
-  return (
-    <group>
-      <mesh position={[p[0], p[1] + 1.2, p[2]]}>
-        <boxGeometry args={[2, 2.4, 2]} />
-        {mat}
-      </mesh>
-      {lamp(p)}
-    </group>
   )
 }
 
@@ -419,7 +396,7 @@ function PilotRig({ night }: { night: boolean }) {
     <>
       <group ref={pilot}>
         {/* night fill light in front of the Pilot, so his face isn't lost against lit windows */}
-        {night && <pointLight position={[0, 2.4, 2.2]} color="#ffe2b8" intensity={5} distance={6} decay={1.6} />}
+        {night && <pointLight position={[0, 3.2, 2.6]} color="#ffe2b8" intensity={3} distance={5.5} decay={2} />}
         <ModelGuard fallback={<PilotPlaceholder />}>
           <Suspense fallback={<PilotPlaceholder />}>
             <PilotModel pose={pose} />
