@@ -3,19 +3,22 @@ import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferG
 
 /**
  * Procedural floating islands in a soft, cozy style (inspired by Aloft):
- * a rounded grass top with an overhanging lip, a layered rock underside tapering to a point,
- * and round puffy trees. Everything for one island is merged into a single vertex-coloured
- * geometry, so each island costs one draw call.
+ * rolling grass tops with a rounded overhanging lip, a sandstone cliff band, and a layered
+ * rock underside that tapers to a point, with hanging roots and a few tiny islets alongside.
+ *
+ * The island body is one merged, vertex-coloured geometry (one draw call).
+ * Trees, bushes, rocks and flowers come back as placements; World.tsx draws them with
+ * instanced CC0 props (Quaternius "Ultimate Nature", restyled into props.glb).
  */
 
 // ---------- tiny seeded noise ----------
 function rng(seed: number) {
-  let s = seed % 2147483647
+  let s = Math.floor(Math.abs(seed)) % 2147483647
   if (s <= 0) s += 2147483646
   return () => (s = (s * 16807) % 2147483647) / 2147483647
 }
 
-/** Smooth periodic 1D noise around a circle: sum of a few random sines. */
+/** Smooth periodic noise around a circle: a few random sines, roughly in [-1, 1]. */
 function ringNoise(seed: number, octaves = 4) {
   const r = rng(seed)
   const waves = Array.from({ length: octaves }, (_, i) => ({ f: i + 2 + Math.floor(r() * 3), p: r() * Math.PI * 2, a: 1 / (i + 1.4) }))
@@ -23,75 +26,173 @@ function ringNoise(seed: number, octaves = 4) {
   return (theta: number) => waves.reduce((s, w) => s + Math.sin(theta * w.f + w.p) * w.a, 0) / norm
 }
 
-export type IslandStyle = { grass: string; grassEdge: string; dirt: string; rockA: string; rockB: string; rockDeep: string }
+/** Smooth 2D noise from a handful of rotated sine waves, roughly in [-1, 1]. */
+function fieldNoise(seed: number, scale: number) {
+  const r = rng(seed)
+  const waves = Array.from({ length: 4 }, (_, i) => {
+    const a = r() * Math.PI
+    return { dx: Math.cos(a), dz: Math.sin(a), f: (0.6 + r() * 0.8) * (i + 1) / scale, p: r() * Math.PI * 2, w: 1 / (i + 1) }
+  })
+  const norm = waves.reduce((s, w) => s + w.w, 0)
+  return (x: number, z: number) => waves.reduce((s, w) => s + Math.sin((x * w.dx + z * w.dz) * w.f + w.p) * w.w, 0) / norm
+}
+
+const smoothstep = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
+  return t * t * (3 - 2 * t)
+}
+
+export type IslandStyle = {
+  grass: string
+  grassLight: string
+  grassEdge: string
+  dirt: string
+  rockA: string
+  rockB: string
+  rockDeep: string
+  root: string
+}
 
 export const DAY_STYLE: IslandStyle = {
-  grass: '#a3c97a',
-  grassEdge: '#7fae5c',
-  dirt: '#9a7a5c',
-  rockA: '#e0c7a8',
-  rockB: '#cdb293',
-  rockDeep: '#a08a78',
+  grass: '#93c556',
+  grassLight: '#b5d86a',
+  grassEdge: '#6a9f3e',
+  dirt: '#8a6748',
+  rockA: '#e6cca4',
+  rockB: '#d2b089',
+  rockDeep: '#9c8270',
+  root: '#6b4b34',
 }
 
 const col = (hex: string) => new THREE.Color(hex)
 
-type Opts = { radius: number; seed: number; top: number; trees?: number; keepClear?: [number, number, number][] }
+export type SurfaceOpts = { radius: number; seed: number; top: number; keepClear?: [number, number, number][] }
 
-/** Island body: grass cap + lip + strata underside. Returns geometry centred on the island origin. */
-function islandBody({ radius: R, seed, top }: Opts, style: IslandStyle) {
-  const SEG = 56
-  const edge = ringNoise(seed, 4)
-  const outline = (t: number) => R * (1 + 0.1 * edge(t))
+/** The island's outline radius at angle theta. */
+function makeOutline(R: number, seed: number) {
+  const edge = ringNoise(seed, 5)
+  return (t: number) => R * (1 + 0.14 * edge(t))
+}
+
+/**
+ * Height of the grass top (relative to the island centre) at local (x, z).
+ * Rolling hills and one big mound, flattened around every keep-clear spot so the Pilot,
+ * the moored ship and the landmarks stand on level ground, and faded out towards the rim.
+ */
+export function islandSurface({ radius: R, seed, top, keepClear = [] }: SurfaceOpts) {
+  const outline = makeOutline(R, seed)
+  const hills = fieldNoise(seed + 3, R * 0.55)
+  const r = rng(seed + 11)
+  const ma = r() * Math.PI * 2
+  const md = R * (0.35 + r() * 0.25)
+  const mound = { x: Math.cos(ma) * md, z: Math.sin(ma) * md, h: R * 0.11, w: R * 0.32 }
+  const dome = R * 0.05
+  const hillAmp = R * 0.035
+  return (x: number, z: number) => {
+    const rho = Math.min(1, Math.hypot(x, z) / outline(Math.atan2(z, x)))
+    const base = top + dome * (1 - rho * rho)
+    const rim = 1 - smoothstep(0.72, 0.97, rho)
+    let clear = 1
+    for (const [cx, cz, cr] of keepClear) clear *= smoothstep(cr * 0.8, cr + 2.2, Math.hypot(x - cx, z - cz))
+    const m = mound.h * Math.exp(-((x - mound.x) ** 2 + (z - mound.z) ** 2) / (mound.w * mound.w))
+    return base + (hills(x, z) * hillAmp + m) * rim * clear
+  }
+}
+
+type BodyOpts = {
+  R: number
+  seed: number
+  top: number
+  surface: (x: number, z: number) => number
+  segments?: number
+  topRings?: number
+  depth?: number
+}
+
+/** Island body: grass top + rounded lip + cliff band + strata underside tapering to a point. */
+function islandBody({ R, seed, top, surface, segments = 96, topRings = 10, depth = R * 1.35 }: BodyOpts, style: IslandStyle) {
+  const SEG = segments
+  const outline = makeOutline(R, seed)
+  const strata = ringNoise(seed + 7, 3)
+  const tint = fieldNoise(seed + 21, R * 0.3)
   const positions: number[] = []
   const colors: number[] = []
   const index: number[] = []
   const c = new THREE.Color()
+  const grass = col(style.grass), grassLight = col(style.grassLight), grassEdge = col(style.grassEdge)
 
-  // rings from the centre of the top, out to the lip, then down the underside
-  type Ring = { scale: number; y: (t: number) => number; color: (t: number, y: number) => THREE.Color; jag: number }
-  const depth = R * 1.25
-  const strata = ringNoise(seed + 7, 3)
+  type Ring = { pos: (t: number, s: number) => [number, number, number]; color: (t: number, x: number, y: number, z: number) => THREE.Color }
   const rings: Ring[] = []
-  const TOP_RINGS = 5
-  for (let i = 0; i <= TOP_RINGS; i++) {
-    const rho = i / TOP_RINGS
+  const jag = rng(seed + 99)
+  const jagTable = Array.from({ length: 40 * SEG }, () => jag() - 0.5)
+
+  // grass top: polar grid following the surface (hills, mound, flattened clear spots)
+  for (let i = 0; i <= topRings; i++) {
+    const rho = (i / topRings) * 0.97
     rings.push({
-      scale: rho * 0.94,
-      y: () => top + 0.12 * (1 - rho * rho),
-      color: () => c.copy(col(style.grass)).lerp(col(style.grassEdge), rho * rho * 0.6),
-      jag: 0,
+      pos: (t) => {
+        const r = outline(t) * rho
+        const x = Math.cos(t) * r, z = Math.sin(t) * r
+        return [x, surface(x, z), z]
+      },
+      color: (_t, x, y, z) =>
+        c.copy(grass).lerp(grassLight, Math.max(0, Math.min(1, (y - top) / (R * 0.12))) * 0.7 + tint(x, z) * 0.12).lerp(grassEdge, Math.pow(rho, 6) * 0.7),
     })
   }
-  // soft rounded lip
-  rings.push({ scale: 1.0, y: () => top - 0.06, color: () => c.copy(col(style.grassEdge)), jag: 0 })
-  rings.push({ scale: 1.02, y: () => top - 0.22, color: () => c.copy(col(style.grassEdge)).multiplyScalar(0.85), jag: 0 })
-  rings.push({ scale: 0.97, y: () => top - 0.38, color: () => c.copy(col(style.dirt)), jag: 0.02 })
-  // underside: stepped strata that taper to a point
-  const LEVELS = 9
+  // rounded, slightly overhanging lip
+  const lip: [number, number, string, number][] = [
+    [1.0, -0.06, style.grassEdge, 1],
+    [1.025, -0.3, style.grassEdge, 0.85],
+    [1.0, -0.55, style.dirt, 1],
+  ]
+  for (const [scale, dy, hex, k] of lip) {
+    rings.push({
+      pos: (t) => {
+        const r = outline(t) * scale
+        return [Math.cos(t) * r, top + dy, Math.sin(t) * r]
+      },
+      color: () => c.copy(col(hex)).multiplyScalar(k),
+    })
+  }
+  // cliff band: near-vertical sandstone with warm stripes
+  const cliff = [
+    [0.985, -0.9],
+    [0.975, -1.5],
+    [0.955, -2.2],
+  ]
+  cliff.forEach(([scale, dy], k) => {
+    rings.push({
+      pos: (t, s) => {
+        const r = outline(t) * scale * (1 + jagTable[(k + 3) * SEG + s] * 0.03)
+        return [Math.cos(t) * r, top + dy + 0.12 * strata(t * 3 + k), Math.sin(t) * r]
+      },
+      color: () => c.copy(col(k % 2 ? style.rockB : style.rockA)),
+    })
+  })
+  // underside: stepped strata tapering to a point
+  const LEVELS = 10
+  const start = top - 2.2
   for (let k = 1; k <= LEVELS; k++) {
     const f = k / LEVELS
-    const taper = Math.pow(1 - f, 0.85)
+    const taper = Math.pow(1 - f, 0.9)
     rings.push({
-      scale: 0.95 * taper + 0.02,
-      y: (t) => top - 0.38 - depth * f + 0.12 * strata(t * 2 + k),
-      color: (_t, y) => {
-        const band = k % 2 === 0 ? style.rockA : style.rockB
-        return c.copy(col(band)).lerp(col(style.rockDeep), Math.min(1, (top - y) / (depth * 1.1)) * 0.75)
+      pos: (t, s) => {
+        const r = outline(t) * (0.93 * taper + 0.03) * (1 + jagTable[(k + 8) * SEG + s] * (0.08 + f * 0.18))
+        return [Math.cos(t) * r, start - depth * f + 0.18 * strata(t * 2 + k), Math.sin(t) * r]
       },
-      jag: 0.07 + f * 0.12,
+      color: (_t, _x, y) => {
+        const band = k % 2 === 0 ? style.rockA : style.rockB
+        return c.copy(col(band)).lerp(col(style.rockDeep), Math.min(1, (start - y) / (depth * 1.05)) * 0.8)
+      },
     })
   }
 
-  const jagNoise = rng(seed + 99)
   rings.forEach((ring, ri) => {
     for (let s = 0; s < SEG; s++) {
       const t = (s / SEG) * Math.PI * 2
-      const jitter = ring.jag ? 1 + (jagNoise() - 0.5) * ring.jag * 2 : 1
-      const r = outline(t) * ring.scale * jitter
-      const y = ring.y(t)
-      positions.push(Math.cos(t) * r, y, Math.sin(t) * r)
-      const cc = ring.color(t, y)
+      const [x, y, z] = ring.pos(t, s)
+      positions.push(x, y, z)
+      const cc = ring.color(t, x, y, z)
       colors.push(cc.r, cc.g, cc.b)
     }
     if (ri > 0) {
@@ -102,9 +203,9 @@ function islandBody({ radius: R, seed, top }: Opts, style: IslandStyle) {
       }
     }
   })
-  // bottom tip
+  // (ring 0 sits at the centre, so the top is closed) bottom tip
   const tipIdx = positions.length / 3
-  positions.push(0, top - 0.38 - depth * 1.12, 0)
+  positions.push(0, start - depth * 1.12, 0)
   const tipC = col(style.rockDeep).multiplyScalar(0.8)
   colors.push(tipC.r, tipC.g, tipC.b)
   const last = (rings.length - 1) * SEG
@@ -118,9 +219,8 @@ function islandBody({ radius: R, seed, top }: Opts, style: IslandStyle) {
   return { geometry: g, outline }
 }
 
-/** A blobby sphere with gently displaced vertices, flat-coloured. */
-function blob(radius: number, color: THREE.Color, seed: number, detail = 2, squash = 0.85) {
-  // weld the icosphere so normals are shared: smooth, soft shading instead of facets
+/** A blobby sphere with gently displaced vertices, flat-coloured, smooth-shaded. */
+function blob(radius: number, color: THREE.Color, seed: number, detail = 1, squash = 0.7) {
   let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(radius, detail)
   g.deleteAttribute('normal')
   g.deleteAttribute('uv')
@@ -128,7 +228,7 @@ function blob(radius: number, color: THREE.Color, seed: number, detail = 2, squa
   const p = g.attributes.position as THREE.BufferAttribute
   const r = rng(seed)
   for (let i = 0; i < p.count; i++) {
-    const k = 1 + (r() - 0.5) * 0.12
+    const k = 1 + (r() - 0.5) * 0.25
     p.setXYZ(i, p.getX(i) * k, p.getY(i) * k * squash, p.getZ(i) * k)
   }
   g.computeVertexNormals()
@@ -143,38 +243,14 @@ function paint(g: THREE.BufferGeometry, color: THREE.Color) {
   return g
 }
 
-const TREE_GREENS = ['#7fb35a', '#8cbf63', '#6ea64f', '#9cc96c']
-
-function tree(x: number, y: number, z: number, scale: number, seed: number) {
-  const r = rng(seed)
-  const parts: THREE.BufferGeometry[] = []
-  const trunkH = 0.9 * scale
-  const trunk = new THREE.CylinderGeometry(0.07 * scale, 0.12 * scale, trunkH, 7)
-  trunk.translate(x, y + trunkH / 2, z)
-  parts.push(paint(trunk, col('#7a5a43')))
-  const green = col(TREE_GREENS[Math.floor(r() * TREE_GREENS.length)])
-  const puffs = 3 + Math.floor(r() * 2)
-  for (let i = 0; i < puffs; i++) {
-    const a = r() * Math.PI * 2
-    const d = i === 0 ? 0 : 0.28 * scale
-    const pr = (i === 0 ? 0.55 : 0.38 + r() * 0.1) * scale
-    const g = blob(pr, green.clone().offsetHSL(0, 0, (r() - 0.5) * 0.06), seed * 7 + i)
-    g.translate(x + Math.cos(a) * d, y + trunkH + (i === 0 ? 0.25 : 0.05 + r() * 0.2) * scale, z + Math.sin(a) * d)
-    parts.push(g)
-  }
-  return parts
-}
-
-function rock(x: number, y: number, z: number, s: number, seed: number) {
-  const g = blob(s, col('#b8a38f'), seed, 1, 0.65)
-  g.translate(x, y + s * 0.25, z)
-  return [g]
-}
-
-function bush(x: number, y: number, z: number, s: number, seed: number) {
-  const g = blob(s, col('#88b860'), seed, 1, 0.7)
-  g.translate(x, y + s * 0.3, z)
-  return [g]
+/** A thin root dangling from under the lip. */
+function root(x: number, y: number, z: number, len: number, lean: number, heading: number, color: THREE.Color) {
+  const g = new THREE.CylinderGeometry(0.03, 0.07, len, 5, 3)
+  g.translate(0, -len / 2, 0)
+  g.rotateZ(lean)
+  g.rotateY(heading)
+  g.translate(x, y, z)
+  return paint(g, color)
 }
 
 /** Strip attributes so every part merges cleanly (position, normal, color only, non-indexed). */
@@ -185,41 +261,110 @@ function normalise(g: THREE.BufferGeometry) {
   return ng
 }
 
-export function buildIsland(opts: Opts, style: IslandStyle = DAY_STYLE) {
-  const { geometry, outline } = islandBody(opts, style)
+export type PropKind =
+  | 'tree_a' | 'tree_b' | 'tree_c' | 'pine' | 'pine_b' | 'birch'
+  | 'bush' | 'bush_berries' | 'rock' | 'rock_moss' | 'rock_moss_b'
+  | 'flowers' | 'plant' | 'fern' | 'stump' | 'log'
+
+export type Placement = { kind: PropKind; x: number; y: number; z: number; rot: number; scale: number; tint: number }
+
+export type Flora = 'leafy' | 'pine' | 'mixed'
+
+const TREES: Record<Flora, PropKind[]> = {
+  leafy: ['tree_a', 'tree_c', 'tree_b', 'tree_a', 'birch'],
+  pine: ['pine', 'pine_b', 'pine', 'tree_c'],
+  mixed: ['tree_a', 'pine', 'tree_c', 'birch', 'pine_b'],
+}
+
+export type IslandOpts = SurfaceOpts & { flora?: Flora; density?: number }
+
+/** Build one island: merged body geometry (+ islets, roots, clinging boulders) and prop placements. */
+export function buildIsland(opts: IslandOpts, style: IslandStyle = DAY_STYLE) {
+  const R = opts.radius
+  const surface = islandSurface(opts)
+  const { geometry, outline } = islandBody({ R, seed: opts.seed, top: opts.top, surface }, style)
   const parts: THREE.BufferGeometry[] = [geometry]
   const r = rng(opts.seed + 31)
-  const clear = opts.keepClear ?? []
-  const free = (x: number, z: number, d: number) => clear.every(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) > cr + d)
-  const surface = (rho: number) => opts.top + 0.12 * (1 - rho * rho)
+  const density = opts.density ?? 1
 
-  const want = opts.trees ?? Math.round(opts.radius * 0.9)
-  let placed = 0
-  for (let tries = 0; tries < 200 && placed < want; tries++) {
+  // --- hanging roots and boulders under the lip (silhouette detail)
+  const rootCol = col(style.root)
+  for (let i = 0; i < Math.round(R * 0.9); i++) {
     const t = r() * Math.PI * 2
-    const rho = 0.55 + r() * 0.3
-    const R = outline(t) * rho * 0.94
-    const x = Math.cos(t) * R, z = Math.sin(t) * R
-    if (!free(x, z, 0.9)) continue
-    parts.push(...tree(x, surface(rho), z, 0.8 + r() * 0.5, opts.seed * 13 + placed))
-    clear.push([x, z, 0.9])
-    placed++
+    const rr = outline(t) * (0.9 + r() * 0.05)
+    parts.push(root(Math.cos(t) * rr, opts.top - 0.5, Math.sin(t) * rr, 0.8 + r() * 2.2, (r() - 0.5) * 0.4, t, rootCol))
   }
-  for (let i = 0; i < Math.round(opts.radius * 1.4); i++) {
+  for (let i = 0; i < 5; i++) {
     const t = r() * Math.PI * 2
-    const rho = 0.3 + r() * 0.62
-    const R = outline(t) * rho * 0.94
-    const x = Math.cos(t) * R, z = Math.sin(t) * R
-    if (!free(x, z, 0.35)) continue
-    parts.push(...(i % 3 === 0 ? rock(x, surface(rho), z, 0.18 + r() * 0.18, opts.seed + i) : bush(x, surface(rho), z, 0.16 + r() * 0.14, opts.seed + i * 3)))
+    const rr = outline(t) * (0.6 + r() * 0.25)
+    const b = blob(0.5 + r() * 0.7, col(i % 2 ? style.rockA : style.rockB), opts.seed + 500 + i)
+    b.translate(Math.cos(t) * rr, opts.top - 2.6 - r() * R * 0.5, Math.sin(t) * rr)
+    parts.push(b)
   }
-  // a couple of boulders clinging to the underside for silhouette
-  for (let i = 0; i < 3; i++) {
+
+  // --- a couple of tiny islets drifting alongside
+  const islets = 2 + Math.floor(r() * 2)
+  for (let i = 0; i < islets; i++) {
+    const ir = 0.9 + r() * 1.0
     const t = r() * Math.PI * 2
-    const R = outline(t) * (0.55 + r() * 0.25)
-    parts.push(...rock(Math.cos(t) * R, opts.top - 0.6 - r() * opts.radius * 0.5, Math.sin(t) * R, 0.25 + r() * 0.25, opts.seed + 500 + i))
+    const d = R * (1.25 + r() * 0.3)
+    const ox = Math.cos(t) * d, oz = Math.sin(t) * d, oy = -1.5 + r() * 4
+    const iSurf = islandSurface({ radius: ir, seed: opts.seed + 70 + i, top: 0.3 })
+    const islet = islandBody({ R: ir, seed: opts.seed + 70 + i, top: 0.3, surface: iSurf, segments: 24, topRings: 3, depth: ir * 1.6 }, style).geometry
+    islet.translate(ox, oy, oz)
+    parts.push(islet)
   }
-  const merged = mergeGeometries(parts.map(normalise), false)!
-  merged.computeBoundingSphere()
-  return merged
+
+  const body = mergeGeometries(parts.map(normalise), false)!
+  body.computeBoundingSphere()
+
+  // --- props: groves of trees towards the rim, undergrowth everywhere, nothing on keep-clear spots
+  const placements: Placement[] = []
+  const taken: [number, number, number][] = [...(opts.keepClear ?? [])]
+  const free = (x: number, z: number, d: number) => taken.every(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) > cr + d)
+  const pointAt = (rhoMin: number, rhoMax: number) => {
+    const t = r() * Math.PI * 2
+    const rho = rhoMin + r() * (rhoMax - rhoMin)
+    const R0 = outline(t) * rho * 0.97
+    return [Math.cos(t) * R0, Math.sin(t) * R0] as const
+  }
+  const place = (kind: PropKind, x: number, z: number, scale: number, spacing: number) => {
+    placements.push({ kind, x, y: surface(x, z) - 0.05, z, rot: r() * Math.PI * 2, scale, tint: 0.92 + r() * 0.16 })
+    taken.push([x, z, spacing])
+  }
+
+  const trees = TREES[opts.flora ?? 'leafy']
+  const groves = Array.from({ length: 2 + Math.floor(r() * 2) }, () => pointAt(0.45, 0.8))
+  const wantTrees = Math.round(R * 1.25 * density)
+  for (let tries = 0, n = 0; tries < 400 && n < wantTrees; tries++) {
+    let x: number, z: number
+    if (r() < 0.65) {
+      const [gx, gz] = groves[Math.floor(r() * groves.length)]
+      const a = r() * Math.PI * 2, d = r() * R * 0.22
+      x = gx + Math.cos(a) * d
+      z = gz + Math.sin(a) * d
+    } else [x, z] = pointAt(0.3, 0.9)
+    const rho = Math.hypot(x, z) / outline(Math.atan2(z, x))
+    if (rho > 0.9) continue
+    const s = 1.35 + r() * 0.7
+    if (!free(x, z, 1.1 * s)) continue
+    place(trees[Math.floor(r() * trees.length)], x, z, s, 1.1 * s)
+    n++
+  }
+  const scatter = (kinds: PropKind[], count: number, sMin: number, sMax: number, spacing: number, rho: [number, number]) => {
+    for (let tries = 0, n = 0; tries < count * 6 && n < count; tries++) {
+      const [x, z] = pointAt(rho[0], rho[1])
+      const s = sMin + r() * (sMax - sMin)
+      if (!free(x, z, spacing * s)) continue
+      place(kinds[Math.floor(r() * kinds.length)], x, z, s, spacing * s)
+      n++
+    }
+  }
+  scatter(['bush', 'bush_berries', 'bush'], Math.round(R * 0.8 * density), 0.6, 0.95, 0.8, [0.25, 0.92])
+  scatter(['rock_moss', 'rock_moss_b', 'rock'], Math.round(R * 0.45 * density), 1.2, 2.4, 0.6, [0.3, 0.95])
+  scatter(['flowers', 'flowers', 'plant'], Math.round(R * 1.4 * density), 0.9, 1.4, 0.35, [0.1, 0.94])
+  scatter(['fern', 'plant'], Math.round(R * 1.0 * density), 0.8, 1.2, 0.45, [0.2, 0.94])
+  if (r() < 0.6) scatter(['stump', 'log'], 1, 1.0, 1.3, 1.0, [0.4, 0.8])
+
+  return { geometry: body, placements, surface }
 }

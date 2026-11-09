@@ -2,19 +2,28 @@ import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNo
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, PerformanceMonitor, useAnimations, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import { ISLANDS, ISLAND_TOP, STOPS, islandById, stopAnchor, type IslandDef } from './layout'
-import { buildIsland } from './islandGen'
+import {
+  ISLANDS, ISLAND_TOP, MOOR_DIR, STOPS, WORLD_SCALE, clearSpots, groundY, islandById, islandSeed,
+  landmarkSpots, mooringAnchor, stopAnchor, type IslandDef,
+} from './layout'
+import { buildIsland, type Placement, type PropKind } from './islandGen'
+import { SEAT, SkyShip } from './SkyShip'
 import { useStore } from '../store'
 
 const PALETTE = {
-  day: { sky: '#A9C4CC', top: '#9ecbe0', horizon: '#f5e4d3', grass: '#8DB36B', rock: '#6B5E55', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 1.9, sunColor: '#ffe3c2', hemi: 1.5 },
-  night: { sky: '#1C2333', top: '#121a2e', horizon: '#3b3552', grass: '#4F6B45', rock: '#3E3833', hemiSky: '#8aa0d0', hemiGround: '#3a3648', sun: 0.35, sunColor: '#b8c8ff', hemi: 0.75 },
+  day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 1.9, sunColor: '#ffe3c2', hemi: 1.5 },
+  night: { top: '#121a2e', horizon: '#3b3552', hemiSky: '#8aa0d0', hemiGround: '#3a3648', sun: 0.35, sunColor: '#b8c8ff', hemi: 0.75 },
 }
 
 /** Must match --panel-w in styles.css: clamp(440px, 44vw, 760px). */
 export const panelWidth = (w: number) => Math.min(760, Math.max(440, w * 0.44))
 
 const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches
+
+const DRACO_PATH = '/draco/'
+const PROPS_URL = '/models/props.glb'
+
+type WorldPlacement = Placement & { x: number; y: number; z: number }
 
 export default function World() {
   const theme = useStore((s) => s.theme)
@@ -23,10 +32,29 @@ export default function World() {
   // Start at a safe resolution and let the FPS monitor raise or lower it for this device.
   const [dpr, setDpr] = useState(mobile ? 1.25 : 1.5)
   const maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2)
+  // Islands are generated once: body geometry per island + prop placements for the instancer.
+  const islands = useMemo(
+    () =>
+      ISLANDS.map((def) => ({
+        def,
+        ...buildIsland({ radius: def.radius, seed: islandSeed(def.id), top: ISLAND_TOP, keepClear: clearSpots(def), flora: def.flora, density: mobile ? 0.6 : 1 }),
+      })),
+    [mobile],
+  )
+  const placements = useMemo<WorldPlacement[]>(
+    () =>
+      islands.flatMap(({ def, placements }) =>
+        placements
+          // phones skip half the smallest undergrowth: many instances, little visual gain at that size
+          .filter((p, k) => !mobile || !['flowers', 'plant', 'fern'].includes(p.kind) || k % 2 === 0)
+          .map((p) => ({ ...p, x: p.x + def.position[0], y: p.y + def.position[1], z: p.z + def.position[2] })),
+      ),
+    [islands, mobile],
+  )
   return (
     <Canvas
       dpr={dpr}
-      camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 220, position: [10, 7, 12] }}
+      camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 420, position: [10, 7, 12] }}
       gl={{ antialias: !mobile, powerPreference: 'high-performance' }}
     >
       <PerformanceMonitor
@@ -36,14 +64,19 @@ export default function World() {
         onFallback={() => setDpr(0.75)}
       />
       <SkyDome top={c.top} horizon={c.horizon} />
-      <fog attach="fog" args={[c.horizon, 40, 120]} />
+      <fog attach="fog" args={[c.horizon, 70, 240]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
       <directionalLight position={[12, 20, 8]} intensity={c.sun} color={c.sunColor} />
-      {ISLANDS.map((i) => (
-        <Island key={i.id} def={i} night={theme === 'night'} labels={!mobile} />
+      {islands.map(({ def, geometry }) => (
+        <Island key={def.id} def={def} geometry={geometry} night={theme === 'night'} labels={!mobile} />
       ))}
-      <Clouds count={mobile ? 10 : 22} night={theme === 'night'} />
-      <PilotRig />
+      <ModelGuard fallback={null}>
+        <Suspense fallback={null}>
+          <Props placements={placements} />
+        </Suspense>
+      </ModelGuard>
+      <Clouds count={mobile ? 12 : 26} night={theme === 'night'} />
+      <PilotRig night={theme === 'night'} />
       <ViewOffset />
     </Canvas>
   )
@@ -70,21 +103,9 @@ function ViewOffset() {
   return null
 }
 
-/* ---------------- Islands (grey-box placeholders) ---------------- */
+/* ---------------- Islands ---------------- */
 
-/** Where props must not grow: the landmark, and every spot the Pilot stands on this island. */
-function clearSpots(def: IslandDef): [number, number, number][] {
-  const spots: [number, number, number][] = STOPS.filter((st) => st.island === def.id).map((st) => [st.offset[0], st.offset[2], 1.0])
-  if (def.id === 'home') spots.push([-1.5, -1, 2.2], [-3.5, -4, 1.6], [4.5, -3.2, 0.9], [3, 3, 1.3])
-  else spots.push([0, -1.4, 1.4])
-  return spots
-}
-
-function Island({ def, night, labels }: { def: IslandDef; night: boolean; labels: boolean }) {
-  const geometry = useMemo(
-    () => buildIsland({ radius: def.radius, seed: def.id.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 100000, top: ISLAND_TOP, keepClear: clearSpots(def) }),
-    [def],
-  )
+function Island({ def, geometry, night, labels }: { def: IslandDef; geometry: THREE.BufferGeometry; night: boolean; labels: boolean }) {
   return (
     <group position={def.position}>
       <mesh geometry={geometry}>
@@ -96,6 +117,52 @@ function Island({ def, night, labels }: { def: IslandDef; night: boolean; labels
   )
 }
 
+/**
+ * Trees, bushes, rocks and flowers: CC0 Quaternius "Ultimate Nature" models, restyled into props.glb
+ * (warmer greens, sandstone rocks, smooth shading). One instanced draw call per prop type for the whole world.
+ */
+function Props({ placements }: { placements: WorldPlacement[] }) {
+  const { nodes } = useGLTF(PROPS_URL, DRACO_PATH) as unknown as { nodes: Record<string, THREE.Mesh> }
+  const material = useMemo(() => new THREE.MeshLambertMaterial({ vertexColors: true }), [])
+  const groups = useMemo(() => {
+    const byKind = new Map<PropKind, WorldPlacement[]>()
+    for (const p of placements) {
+      if (!nodes[p.kind]) continue
+      if (!byKind.has(p.kind)) byKind.set(p.kind, [])
+      byKind.get(p.kind)!.push(p)
+    }
+    return [...byKind.entries()]
+  }, [placements, nodes])
+  return (
+    <>
+      {groups.map(([kind, list]) => (
+        <PropInstances key={kind} geometry={nodes[kind].geometry} material={material} list={list} />
+      ))}
+    </>
+  )
+}
+
+function PropInstances({ geometry, material, list }: { geometry: THREE.BufferGeometry; material: THREE.Material; list: WorldPlacement[] }) {
+  const ref = useRef<THREE.InstancedMesh>(null)
+  useEffect(() => {
+    const mesh = ref.current
+    if (!mesh) return
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0)
+    const col = new THREE.Color()
+    list.forEach((it, i) => {
+      q.setFromAxisAngle(up, it.rot)
+      m.compose(p.set(it.x, it.y, it.z), q, s.setScalar(it.scale))
+      mesh.setMatrixAt(i, m)
+      mesh.setColorAt(i, col.setScalar(it.tint))
+    })
+    mesh.instanceMatrix.needsUpdate = true
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    mesh.computeBoundingSphere()
+  }, [list])
+  return <instancedMesh ref={ref} args={[geometry, material, list.length]} frustumCulled={false} />
+}
+useGLTF.preload(PROPS_URL, DRACO_PATH)
+
 /** Big inverted sphere with a vertical gradient: soft pastel sky by day, deep blue by night. */
 function SkyDome({ top, horizon }: { top: string; horizon: string }) {
   const uniforms = useMemo(() => ({ top: { value: new THREE.Color(top) }, horizon: { value: new THREE.Color(horizon) } }), []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -104,7 +171,7 @@ function SkyDome({ top, horizon }: { top: string; horizon: string }) {
     uniforms.horizon.value.set(horizon)
   }, [top, horizon, uniforms])
   return (
-    <mesh scale={180} renderOrder={-1}>
+    <mesh scale={340} renderOrder={-1}>
       <sphereGeometry args={[1, 32, 16]} />
       <shaderMaterial
         side={THREE.BackSide}
@@ -117,7 +184,7 @@ function SkyDome({ top, horizon }: { top: string; horizon: string }) {
           'uniform vec3 horizon;',
           'varying vec3 vPos;',
           'void main() {',
-          '  float h = clamp(normalize(vPos).y * 2.2 + 0.45, 0.0, 1.0);',
+          '  float h = clamp(normalize(vPos).y * 2.0 + 0.4, 0.0, 1.0);',
           '  gl_FragColor = vec4(mix(horizon, top, smoothstep(0.0, 1.0, h)), 1.0);',
           '  #include <colorspace_fragment>',
           '}',
@@ -131,59 +198,58 @@ function IslandLabel({ def }: { def: IslandDef }) {
   const active = useStore((s) => STOPS[s.activeStop]?.island === def.id)
   // Keep the Html mounted and hide it: unmounting drei Html mid-frame throws a removeChild error.
   return (
-    <Html position={[0, ISLAND_TOP + 3.6, 0]} center zIndexRange={[10, 0]}>
+    <Html position={[0, ISLAND_TOP + def.radius * 0.1 + 7, 0]} center zIndexRange={[10, 0]}>
       <div className="island-label" style={{ borderColor: def.accent, visibility: active ? 'hidden' : 'visible' }}>{def.name}</div>
     </Html>
   )
 }
 
-/** One accent-coloured block per island so the greybox reads; replaced by real dioramas later. */
+/** Accent-coloured placeholder buildings so each island reads; replaced by real dioramas later. */
 function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
-  const y = ISLAND_TOP
+  const spots = landmarkSpots(def)
+  const at = (k: number): [number, number, number] => [spots[k][0], groundY(def, spots[k][0], spots[k][1]), spots[k][1]]
   const mat = <meshLambertMaterial color={def.accent} flatShading />
-  const lamp = night ? (
-    <mesh position={[0, y + 2.6, 0]}>
-      <sphereGeometry args={[0.18, 8, 8]} />
-      <meshBasicMaterial color="#ffd98a" />
-    </mesh>
-  ) : null
+  const lamp = (p: [number, number, number]) =>
+    night ? (
+      <mesh position={[p[0], p[1] + 3.6, p[2]]}>
+        <sphereGeometry args={[0.18, 8, 8]} />
+        <meshBasicMaterial color="#ffd98a" />
+      </mesh>
+    ) : null
   if (def.id === 'home') {
+    const house = at(0)
+    const screen = at(1)
+    const post = at(2)
     return (
       <group>
-        <mesh position={[-1.5, y + 1, -1]}>
-          <boxGeometry args={[2.6, 2, 2.2]} />
+        <mesh position={[house[0], house[1] + 1.2, house[2]]}>
+          <boxGeometry args={[3.2, 2.4, 2.8]} />
           <meshLambertMaterial color="#F4F1EA" flatShading />
         </mesh>
-        <mesh position={[-1.5, y + 2.6, -1]} rotation={[0, Math.PI / 4, 0]}>
-          <coneGeometry args={[2.1, 1.3, 4]} />
+        <mesh position={[house[0], house[1] + 3.2, house[2]]} rotation={[0, Math.PI / 4, 0]}>
+          <coneGeometry args={[2.6, 1.6, 4]} />
           {mat}
         </mesh>
-        {/* cinema screen */}
-        <mesh position={[-3.5, y + 1.3, -4]}>
-          <boxGeometry args={[2.4, 1.4, 0.12]} />
+        <mesh position={[screen[0], screen[1] + 1.6, screen[2]]}>
+          <boxGeometry args={[3.2, 1.8, 0.14]} />
           <meshLambertMaterial color="#2a2a30" />
         </mesh>
-        {/* post box */}
-        <mesh position={[4.5, y + 0.6, -3.2]}>
+        <mesh position={[post[0], post[1] + 0.6, post[2]]}>
           <boxGeometry args={[0.5, 1.2, 0.5]} />
           {mat}
         </mesh>
-        {/* launch pad */}
-        <mesh position={[3, y + 0.03, 3]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[1, 6]} />
-          <meshLambertMaterial color="#F4F1EA" />
-        </mesh>
-        {lamp}
+        {lamp(house)}
       </group>
     )
   }
+  const p = at(0)
   return (
     <group>
-      <mesh position={[0, y + 1, -1.4]}>
-        <boxGeometry args={[1.6, 2, 1.6]} />
+      <mesh position={[p[0], p[1] + 1.2, p[2]]}>
+        <boxGeometry args={[2, 2.4, 2]} />
         {mat}
       </mesh>
-      {lamp}
+      {lamp(p)}
     </group>
   )
 }
@@ -191,6 +257,7 @@ function Landmark({ def, night }: { def: IslandDef; night: boolean }) {
 /* ---------------- Clouds ---------------- */
 
 function Clouds({ count, night }: { count: number; night: boolean }) {
+  const S = WORLD_SCALE
   const clouds = useMemo(() => {
     let seed = 7
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
@@ -198,24 +265,24 @@ function Clouds({ count, night }: { count: number; night: boolean }) {
     return Array.from({ length: count }, (_, i) => {
       const low = i % 4 !== 0
       return {
-        pos: [(rnd() - 0.5) * 120, low ? -16 + rnd() * 6 : 22 + rnd() * 8, (rnd() - 0.5) * 110] as [number, number, number],
-        scale: low ? 3 + rnd() * 3 : 2 + rnd() * 2,
-        speed: 0.2 + rnd() * 0.3,
+        pos: [(rnd() - 0.5) * 130 * S, low ? -40 + rnd() * 8 : 58 + rnd() * 14, (rnd() - 0.5) * 120 * S] as [number, number, number],
+        scale: low ? 6 + rnd() * 5 : 3.5 + rnd() * 3,
+        speed: 0.3 + rnd() * 0.4,
       }
     })
-  }, [count])
+  }, [count, S])
   const group = useRef<THREE.Group>(null)
   useFrame((_, dt) => {
     group.current?.children.forEach((c, i) => {
       c.position.x += clouds[i].speed * dt
-      if (c.position.x > 60) c.position.x = -60
+      if (c.position.x > 70 * S) c.position.x = -70 * S
     })
   })
   const color = night ? '#3A4258' : '#F4F1EA'
   return (
     <group ref={group}>
       {clouds.map((c, i) => (
-        <group key={i} position={c.pos} scale={c.scale}>
+        <group key={i} position={c.pos} scale={[c.scale, c.scale * (c.pos[1] < 0 ? 0.55 : 1), c.scale]}>
           {[[-1.3, -0.1, 0, 0.9], [-0.4, 0.25, 0.1, 1.25], [0.6, 0.2, -0.1, 1.1], [1.5, -0.1, 0.1, 0.8], [0.1, -0.2, 0.5, 0.9]].map(([x, y, z, s], j) => (
             <mesh key={j} position={[x, y, z]} scale={[s, s * 0.8, s]}>
               <icosahedronGeometry args={[1, 2]} />
@@ -228,68 +295,118 @@ function Clouds({ count, night }: { count: number; night: boolean }) {
   )
 }
 
-/* ---------------- Pilot, plane and camera driven by scroll ---------------- */
+/* ---------------- Pilot, sky-ship and camera driven by scroll ---------------- */
 
 const smooth = (a: number, b: number, x: number) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)))
   return t * t * (3 - 2 * t)
 }
+const lerpAngle = (a: number, b: number, k: number) => {
+  let d = (b - a) % (Math.PI * 2)
+  if (d > Math.PI) d -= Math.PI * 2
+  if (d < -Math.PI) d += Math.PI * 2
+  return a + d * k
+}
 
-const CAM_DESKTOP = new THREE.Vector3(11, 7.5, 15)
-const CAM_MOBILE = new THREE.Vector3(13, 10, 19)
+const CAM_DESKTOP = new THREE.Vector3(12, 8.5, 16.5)
+const CAM_MOBILE = new THREE.Vector3(14, 11, 21)
+/** Ship moored side-on to the camera, bow pointing to screen-right. */
+const MOOR_YAW = Math.atan2(MOOR_DIR[0], MOOR_DIR[1])
+/** Share of each flight spent hopping aboard, and hopping off. */
+const HOP = 0.14
 
-function PilotRig() {
-  const anchors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
+export type PilotPose = 'ground' | 'board' | 'sail' | 'land'
+
+function PilotRig({ night }: { night: boolean }) {
+  const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
+  const moors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...mooringAnchor(s))), [])
   const pilot = useRef<THREE.Group>(null)
-  const plane = useRef<THREE.Group>(null)
+  const ship = useRef<THREE.Group>(null)
+  const propRef = useRef<THREE.Group>(null)
+  const sailRef = useRef<THREE.Mesh>(null)
+  const lanternRef = useRef<THREE.MeshBasicMaterial>(null)
   const { camera, gl } = useThree()
   const orbit = useLookAround(gl.domElement)
   const sph = useMemo(() => new THREE.Spherical(), [])
   const camTarget = useRef(new THREE.Vector3())
-  const tmp = useMemo(() => ({ pos: new THREE.Vector3(), next: new THREE.Vector3(), look: new THREE.Vector3() }), [])
+  const tmp = useMemo(
+    () => ({ pos: new THREE.Vector3(), shipPos: new THREE.Vector3(), seat: new THREE.Vector3(), look: new THREE.Vector3(), off: new THREE.Vector3() }),
+    [],
+  )
   const first = useRef(true)
   const pose = useRef<PilotPose>('ground')
   const camOffset = useMemo(() => (isMobile() ? CAM_MOBILE : CAM_DESKTOP), [])
 
   useFrame((state, dt) => {
+    const time = state.clock.elapsedTime
     const p = useStore.getState().progress
-    const last = anchors.length - 1
+    const last = stands.length - 1
     const i = Math.min(last, Math.max(0, Math.floor(p)))
     const t = i >= last ? 0 : smooth(0.45, 1, p - i)
-    const A = anchors[i]
-    const B = anchors[Math.min(last, i + 1)]
-    const dist = A.distanceTo(B)
-    const arc = (k: number) => Math.sin(Math.PI * k) * (2.5 + dist * 0.12)
+    const j = Math.min(last, i + 1)
+    const A = stands[i], B = stands[j], MA = moors[i], MB = moors[j]
+    const sh = ship.current, pl = pilot.current
+    if (!sh || !pl) return
 
-    tmp.pos.lerpVectors(A, B, t)
-    tmp.pos.y += arc(t)
-    const flying = t > 0.02 && t < 0.98
-    pose.current = flying ? 'fly' : 'ground'
+    const faceCam = Math.atan2(camera.position.x - pl.position.x, camera.position.z - pl.position.z)
+    const bob = Math.sin(time * 1.3) * 0.08
+    const roll = Math.sin(time * 0.9) * 0.03
 
-    if (pilot.current && plane.current) {
-      const time = state.clock.elapsedTime
-      pilot.current.position.copy(tmp.pos)
-      if (flying) {
-        const k = Math.min(1, t + 0.02)
-        tmp.next.lerpVectors(A, B, k)
-        tmp.next.y += arc(k)
-        pilot.current.lookAt(tmp.next.x, pilot.current.position.y, tmp.next.z)
-        pilot.current.position.y += 0.05 // feet on the wings
-        plane.current.visible = true
-        plane.current.position.copy(tmp.pos)
-        plane.current.lookAt(tmp.next)
-      } else {
-        // on an island: face the camera; the Idle clip does the breathing
-        pilot.current.lookAt(camera.position.x, pilot.current.position.y, camera.position.z)
-        if (!pilotLoaded) pilot.current.position.y += Math.sin(time * 2) * 0.03
-        plane.current.visible = false
-      }
+    // ---- ship: moored beside the stop, or sailing an arc to the next mooring
+    let sailing = false
+    let shipYaw = MOOR_YAW
+    let pitch = 0
+    if (t > 0 && t >= HOP && t <= 1 - HOP) {
+      sailing = true
+      const u = smooth(0, 1, (t - HOP) / (1 - 2 * HOP))
+      const dist = MA.distanceTo(MB)
+      tmp.shipPos.lerpVectors(MA, MB, u)
+      tmp.shipPos.y += Math.sin(Math.PI * u) * (3 + dist * 0.1)
+      const travelYaw = Math.atan2(MB.x - MA.x, MB.z - MA.z)
+      const turn = smooth(0, 0.15, u) * (1 - smooth(0.85, 1, u))
+      shipYaw = lerpAngle(MOOR_YAW, travelYaw, turn)
+      pitch = -Math.cos(Math.PI * u) * 0.12 * turn
+    } else {
+      tmp.shipPos.copy(t > 1 - HOP ? MB : MA)
     }
+    sh.position.set(tmp.shipPos.x, tmp.shipPos.y + bob, tmp.shipPos.z)
+    sh.rotation.set(pitch, shipYaw, roll, 'YXZ')
+    sh.updateMatrixWorld()
+    tmp.seat.copy(SEAT).applyMatrix4(sh.matrixWorld)
 
-    // camera follows the pilot with damping
-    // look-around: rotate the follow offset around the Pilot, then drift back when idle or on the next stop
+    // ---- Pilot: stand, hop aboard, sit while sailing, hop off
+    if (t <= 0) {
+      pose.current = 'ground'
+      tmp.pos.copy(A)
+      pl.rotation.set(0, faceCam, 0)
+    } else if (t < HOP) {
+      pose.current = 'board'
+      const k = smooth(0, 1, t / HOP)
+      tmp.pos.lerpVectors(A, tmp.seat, k)
+      tmp.pos.y += Math.sin(Math.PI * k) * 1.0
+      pl.rotation.set(0, lerpAngle(faceCam, shipYaw, k), 0)
+    } else if (sailing) {
+      pose.current = 'sail'
+      tmp.pos.copy(tmp.seat)
+      pl.quaternion.copy(sh.quaternion)
+    } else {
+      pose.current = 'land'
+      const k = smooth(0, 1, (t - (1 - HOP)) / HOP)
+      tmp.pos.lerpVectors(tmp.seat, B, k)
+      tmp.pos.y += Math.sin(Math.PI * k) * 1.0
+      pl.rotation.set(0, lerpAngle(shipYaw, faceCam, k), 0)
+    }
+    pl.position.copy(tmp.pos)
+    if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
+
+    // ---- ship details
+    if (propRef.current) propRef.current.rotation.z += dt * (sailing ? 22 : 2.5)
+    if (sailRef.current) sailRef.current.scale.z = 1 + Math.sin(time * 2.2) * (sailing ? 0.18 : 0.08)
+    if (lanternRef.current) lanternRef.current.color.set(night ? '#ffd27a' : '#f3d9a4')
+
+    // ---- camera follows the Pilot with damping; drag rotates the follow offset, then drifts back
     const o = orbit.current
-    if (!o.dragging && (state.clock.elapsedTime - o.lastInput > 2.5 || flying)) {
+    if (!o.dragging && (time - o.lastInput > 2.5 || sailing)) {
       const ease = 1 - Math.exp(-dt * 2)
       o.yaw += (0 - o.yaw) * ease
       o.pitch += (0 - o.pitch) * ease
@@ -297,7 +414,7 @@ function PilotRig() {
     sph.setFromVector3(camOffset)
     sph.theta += o.yaw
     sph.phi = Math.min(1.35, Math.max(0.35, sph.phi + o.pitch))
-    const desired = tmp.look.copy(tmp.pos).add(new THREE.Vector3().setFromSpherical(sph))
+    const desired = tmp.look.copy(tmp.pos).add(tmp.off.setFromSpherical(sph))
     const k = first.current ? 1 : 1 - Math.exp(-dt * 3.5)
     camera.position.lerp(desired, k)
     camTarget.current.lerp(tmp.pos, k)
@@ -314,8 +431,8 @@ function PilotRig() {
           </Suspense>
         </ModelGuard>
       </group>
-      <group ref={plane} visible={false}>
-        <PaperPlane />
+      <group ref={ship}>
+        <SkyShip propRef={propRef} sailRef={sailRef} lanternRef={lanternRef} night={night} />
       </group>
     </>
   )
@@ -372,17 +489,15 @@ function useLookAround(el: HTMLElement) {
 }
 
 const PILOT_URL = '/models/chibi_character.glb'
-const DRACO_PATH = '/draco/'
 const PILOT_HEIGHT = 1.8 // world units; the GLB is 1.2 tall
 const FADE = 0.35
 
-type PilotPose = 'ground' | 'fly'
 let pilotLoaded = false
 
 /**
  * Burhanuddin's rigged character. Clips in the GLB: Idle, Idle_CheckWatch, Walk, Wave, Sit, Cheer.
- * On an island: Idle, with an occasional watch check. Flying: Cheer (arms out on the plane).
- * Landing on a stop: one Wave, then back to Idle. Walk and Sit are kept for Adventure Mode and the cinema bench.
+ * On an island: Idle, with an occasional watch check. Hopping aboard and sailing: Sit on the ship's bench.
+ * Hopping off: Idle, then one Wave on landing. Walk and Cheer are kept for Adventure Mode.
  */
 function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
   const { scene, animations } = useGLTF(PILOT_URL, DRACO_PATH)
@@ -421,12 +536,14 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
     const time = s.clock.elapsedTime
     if (!st.current) play('Idle')
     if (p !== st.lastPose) {
-      play(p === 'fly' ? 'Cheer' : 'Wave') // take off with arms out, land with a wave
+      if (p === 'board' || p === 'sail') play('Sit')
+      else if (p === 'land') play('Idle')
+      else play(st.lastPose === 'land' ? 'Wave' : 'Idle') // just stepped off the ship: wave hello
       st.lastPose = p
       st.nextFidget = time + 10 + Math.random() * 6
       return
     }
-    if (p === 'fly') return
+    if (p !== 'ground') return
     const a = actions[st.current]
     // one-shot clips hand back to Idle just before they end
     if ((st.current === 'Wave' || st.current === 'Idle_CheckWatch') && a && a.time >= a.getClip().duration - FADE) play('Idle')
@@ -444,21 +561,21 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
 }
 useGLTF.preload(PILOT_URL, DRACO_PATH)
 
-/** If the character file fails to load (missing, renamed, bad network), show the stand-in instead of crashing the whole scene. */
+/** If a model file fails to load (missing, renamed, bad network), show the fallback instead of crashing the whole scene. */
 class ModelGuard extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() {
     return { failed: true }
   }
   componentDidCatch(err: unknown) {
-    console.warn('Character model failed to load; showing the stand-in.', err)
+    console.warn('A model failed to load; showing the fallback.', err)
   }
   render() {
     return this.state.failed ? this.props.fallback : this.props.children
   }
 }
 
-/** Chibi stand-in until the real Blender GLB arrives (8–11 Nov). */
+/** Simple stand-in shown while the character loads, or if it fails to load. */
 function PilotPlaceholder() {
   return (
     <group scale={0.9}>
@@ -483,25 +600,6 @@ function PilotPlaceholder() {
         <meshLambertMaterial color="#17161A" flatShading />
       </mesh>
     </group>
-  )
-}
-
-function PaperPlane() {
-  const geo = useMemo(() => {
-    const v = [
-      [0, 0, 1.4], [-1, 0.05, -0.9], [0, 0, -0.9], // left wing
-      [0, 0, 1.4], [0, 0, -0.9], [1, 0.05, -0.9], // right wing
-      [0, 0, 1.4], [0, -0.35, -0.9], [0, 0, -0.9], // keel
-    ].flat()
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
-    g.computeVertexNormals()
-    return g
-  }, [])
-  return (
-    <mesh geometry={geo} scale={1.1}>
-      <meshLambertMaterial color="#FAF7F0" side={THREE.DoubleSide} flatShading />
-    </mesh>
   )
 }
 
