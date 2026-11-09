@@ -28,6 +28,7 @@ export function HomeStop() {
     <>
       <h1>{profile.name}</h1>
       <p className="headline">{profile.headline}</p>
+      {profile.tagline && <p className="tagline">{profile.tagline}</p>}
       <p className="subline">{profile.subline}</p>
       <p>{profile.intro}</p>
       <p className="availability">{profile.availability}</p>

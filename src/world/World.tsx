@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Component, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Html, PerformanceMonitor, useAnimations, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -248,6 +248,7 @@ function PilotRig() {
   const camTarget = useRef(new THREE.Vector3())
   const tmp = useMemo(() => ({ pos: new THREE.Vector3(), next: new THREE.Vector3(), look: new THREE.Vector3() }), [])
   const first = useRef(true)
+  const pose = useRef<PilotPose>('ground')
   const camOffset = useMemo(() => (isMobile() ? CAM_MOBILE : CAM_DESKTOP), [])
 
   useFrame((state, dt) => {
@@ -263,6 +264,7 @@ function PilotRig() {
     tmp.pos.lerpVectors(A, B, t)
     tmp.pos.y += arc(t)
     const flying = t > 0.02 && t < 0.98
+    pose.current = flying ? 'fly' : 'ground'
 
     if (pilot.current && plane.current) {
       const time = state.clock.elapsedTime
@@ -272,14 +274,14 @@ function PilotRig() {
         tmp.next.lerpVectors(A, B, k)
         tmp.next.y += arc(k)
         pilot.current.lookAt(tmp.next.x, pilot.current.position.y, tmp.next.z)
-        pilot.current.position.y += 0.35
+        pilot.current.position.y += 0.05 // feet on the wings
         plane.current.visible = true
         plane.current.position.copy(tmp.pos)
         plane.current.lookAt(tmp.next)
       } else {
-        // idle: face the camera, gentle breathing bob
+        // on an island: face the camera; the Idle clip does the breathing
         pilot.current.lookAt(camera.position.x, pilot.current.position.y, camera.position.z)
-        pilot.current.position.y += Math.sin(time * 2) * 0.03
+        if (!pilotLoaded) pilot.current.position.y += Math.sin(time * 2) * 0.03
         plane.current.visible = false
       }
     }
@@ -306,9 +308,11 @@ function PilotRig() {
   return (
     <>
       <group ref={pilot}>
-        <Suspense fallback={<PilotPlaceholder />}>
-          <PilotModel />
-        </Suspense>
+        <ModelGuard fallback={<PilotPlaceholder />}>
+          <Suspense fallback={<PilotPlaceholder />}>
+            <PilotModel pose={pose} />
+          </Suspense>
+        </ModelGuard>
       </group>
       <group ref={plane} visible={false}>
         <PaperPlane />
@@ -367,28 +371,71 @@ function useLookAround(el: HTMLElement) {
   return orbit
 }
 
-const PILOT_URL = '/models/pilot.glb'
+const PILOT_URL = '/models/chibi_character.glb'
 const DRACO_PATH = '/draco/'
 const PILOT_HEIGHT = 1.8 // world units; the GLB is 1.2 tall
+const FADE = 0.35
+
+type PilotPose = 'ground' | 'fly'
+let pilotLoaded = false
 
 /**
- * Burhanuddin's character. Plays an "Idle" clip if the GLB has one (after Mixamo rigging);
- * until then it stands still and PilotRig adds a gentle bob.
+ * Burhanuddin's rigged character. Clips in the GLB: Idle, Idle_CheckWatch, Walk, Wave, Sit, Cheer.
+ * On an island: Idle, with an occasional watch check. Flying: Cheer (arms out on the plane).
+ * Landing on a stop: one Wave, then back to Idle. Walk and Sit are kept for Adventure Mode and the cinema bench.
  */
-function PilotModel() {
+function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
   const { scene, animations } = useGLTF(PILOT_URL, DRACO_PATH)
   const group = useRef<THREE.Group>(null)
-  const { actions, names } = useAnimations(animations, group)
+  const { actions } = useAnimations(animations, group)
+  const state = useRef({ current: '' as string, lastPose: 'ground' as PilotPose, nextFidget: 9 })
+
   useEffect(() => {
+    pilotLoaded = true
     scene.traverse((o) => {
       const m = o as THREE.Mesh
       if (m.isMesh) m.frustumCulled = false
     })
-  }, [scene])
-  useEffect(() => {
-    const idle = names.find((n) => /idle/i.test(n)) ?? names[0]
-    if (idle) actions[idle]?.reset().fadeIn(0.3).play()
-  }, [actions, names])
+    for (const name of ['Wave', 'Idle_CheckWatch']) {
+      const a = actions[name]
+      if (a) {
+        a.setLoop(THREE.LoopOnce, 1)
+        a.clampWhenFinished = true
+      }
+    }
+  }, [scene, actions])
+
+  const play = (name: string) => {
+    const st = state.current
+    const next = actions[name]
+    if (!next || st.current === name) return
+    const prev = st.current ? actions[st.current] : null
+    next.reset().setEffectiveWeight(1).fadeIn(FADE).play()
+    if (prev) prev.fadeOut(FADE)
+    st.current = name
+  }
+
+  useFrame((s) => {
+    const st = state.current
+    const p = pose.current
+    const time = s.clock.elapsedTime
+    if (!st.current) play('Idle')
+    if (p !== st.lastPose) {
+      play(p === 'fly' ? 'Cheer' : 'Wave') // take off with arms out, land with a wave
+      st.lastPose = p
+      st.nextFidget = time + 10 + Math.random() * 6
+      return
+    }
+    if (p === 'fly') return
+    const a = actions[st.current]
+    // one-shot clips hand back to Idle just before they end
+    if ((st.current === 'Wave' || st.current === 'Idle_CheckWatch') && a && a.time >= a.getClip().duration - FADE) play('Idle')
+    if (st.current === 'Idle' && time > st.nextFidget) {
+      play('Idle_CheckWatch')
+      st.nextFidget = time + 12 + Math.random() * 8
+    }
+  })
+
   return (
     <group ref={group} scale={PILOT_HEIGHT / 1.2}>
       <primitive object={scene} />
@@ -396,6 +443,20 @@ function PilotModel() {
   )
 }
 useGLTF.preload(PILOT_URL, DRACO_PATH)
+
+/** If the character file fails to load (missing, renamed, bad network), show the stand-in instead of crashing the whole scene. */
+class ModelGuard extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch(err: unknown) {
+    console.warn('Character model failed to load; showing the stand-in.', err)
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children
+  }
+}
 
 /** Chibi stand-in until the real Blender GLB arrives (8–11 Nov). */
 function PilotPlaceholder() {

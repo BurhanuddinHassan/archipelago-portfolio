@@ -26,6 +26,7 @@ export type Project = {
 export type Profile = {
   name: string
   headline: string
+  tagline?: string
   subline: string
   location: string
   intro: string

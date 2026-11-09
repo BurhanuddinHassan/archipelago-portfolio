@@ -1,11 +1,13 @@
 name: Burhanuddin Hassan
-headline: Gameplay Programmer
+headline: Game Developer & Technical Environment Artist
+tagline: I write the rules, then build the worlds they live in.
 subline: Unity · Unreal Engine 5 · Three.js
 location: Karachi, Pakistan
 intro: >-
   Final-year Computer Science student (Gaming & Animation) at NED University.
-  I build gameplay systems: character controllers, enemy AI state machines,
-  VR interactions and procedural levels, in Unity (C#), Unreal Engine 5 and Three.js.
+  I build gameplay systems (character controllers, enemy AI, VR interactions) and
+  the real-time worlds they run in: scene setup, lighting, shaders and procedural
+  levels, in Unity (C#), Unreal Engine 5 and Three.js.
 availability: Open to game development internships and junior roles.
 cv: /Burhanuddin-Hassan-CV.pdf
 links:
