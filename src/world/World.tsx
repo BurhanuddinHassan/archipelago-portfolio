@@ -13,6 +13,7 @@ import { IslandLandmark } from './landmarks/Islands'
 import { Balloons, Birds, BlobShadows, Butterflies, Clouds, Fireflies, NightSky, Waterfalls, WindStreaks, buildBackdrop, shadowTexture } from './Ambient'
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
+import { player } from './player'
 
 const PALETTE = {
   day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 2.4, sunColor: '#ffe3c2', hemi: 1.2 },
@@ -79,7 +80,13 @@ export default function World() {
     [islands, backdrop, mobile],
   )
   const placements = useMemo(() => groups.flatMap((g) => g.list), [groups])
-  const activeIsland = useStore((s) => STOPS[s.activeStop]?.island ?? 'home')
+  // The island the Pilot is physically nearest: it changes when the ship is halfway across, not when he boards.
+  // (A flight runs over the last 55% of a tour section, eased, so its midpoint is 72.5% through the section.)
+  const activeIsland = useStore((s) => {
+    const i = Math.floor(s.progress)
+    const k = Math.min(STOPS.length - 1, Math.max(0, s.progress - i > 0.725 ? i + 1 : i))
+    return STOPS[k].island
+  })
   const activeList = useMemo(() => groups.find((g) => g.id === activeIsland)?.list ?? [], [groups, activeIsland])
   // Shadows exist only on the island the Pilot is on. Laptops/desktops get real cast shadows (trees, buildings,
   // the Pilot, the ship); phones get cheap soft blobs; lite mode gets none.
@@ -109,7 +116,7 @@ export default function World() {
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
       <Sun intensity={c.sun} color={c.sunColor} island={activeIsland} shadows={realShadows} />
       {islands.map(({ def, geometry }) => (
-        <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} />
+        <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} simple={lite || mobile} />
       ))}
       <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
       {!lite && (
@@ -193,12 +200,12 @@ function ViewOffset() {
 
 /* ---------------- Islands ---------------- */
 
-function Island({ def, geometry, material, night, labels }: { def: IslandDef; geometry: THREE.BufferGeometry; material: THREE.Material; night: boolean; labels: boolean }) {
+function Island({ def, geometry, material, night, labels, simple }: { def: IslandDef; geometry: THREE.BufferGeometry; material: THREE.Material; night: boolean; labels: boolean; simple: boolean }) {
   const desktop = labels
   return (
     <group position={def.position}>
       <mesh geometry={geometry} material={material} receiveShadow />
-      {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} />}
+      {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} simple={simple} />}
       {labels && <IslandLabel def={def} />}
     </group>
   )
@@ -482,6 +489,8 @@ function PilotRig({ night, blobShadow }: { night: boolean; blobShadow: boolean }
       pl.rotation.set(0, lerpAngle(shipYaw, faceCam, k), 0)
     }
     pl.position.copy(tmp.pos)
+    player.pos.copy(tmp.pos)
+    player.grounded = t <= 0 || t > 0.98 // standing on an island (or a hair from touching down)
     if (shadow.current) shadow.current.visible = blobShadow && pose.current === 'ground'
     if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
 

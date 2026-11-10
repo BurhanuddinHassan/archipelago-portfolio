@@ -39,7 +39,8 @@ export type StopDef = {
 export const STOPS: StopDef[] = [
   { id: 'home', label: 'Home', island: 'home', offset: [1.5 * S, 2 * S] },
   { id: 'behind-the-smile', label: 'Behind the Smile', island: 'behind-the-smile', offset: [0, 1.2 * S] },
-  { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [0, 1.2 * S] },
+  // stands nearer the front rim than on other islands: the diorama behind him needs the depth
+  { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [0.86 * S, 2.38 * S] },
   { id: 'sunken-greed', label: 'Sunken Greed', island: 'sunken-greed', offset: [0, 1.2 * S] },
   { id: 'paper-plane-dash', label: 'Paper Plane Dash', island: 'paper-plane-dash', offset: [0, 1.2 * S] },
   { id: 'merge-defence', label: 'Merge Defence', island: 'merge-defence', offset: [0, 1.2 * S] },
@@ -68,7 +69,7 @@ export const FACE_YAW = Math.atan2(CAM_DIR[0], CAM_DIR[1])
 
 const stopById = (id: string) => STOPS.find((s) => s.id === id)!
 /** A point near a stop: `side` along the screen-right direction, `back` away from the camera (island-local x, z). */
-function nearStop(id: string, side: number, back: number): [number, number] {
+export function nearStop(id: string, side: number, back: number): [number, number] {
   const o = stopById(id).offset
   return [o[0] + MOOR_DIR[0] * side - CAM_DIR[0] * back, o[1] + MOOR_DIR[1] * side - CAM_DIR[1] * back]
 }
@@ -84,6 +85,32 @@ export const HOME_PIECES = {
   arcade: nearStop('home', 1.2, 2.2),
   lanterns: [nearStop('home', -2.6, 0.4), nearStop('home', 2.6, 3.8), nearStop('cinema', -3.1, 1.9), nearStop('contact', -0.5, 2.6), nearStop('contact', -3.4, 0.2)],
 }
+
+/**
+ * Chrono Rebellion: the island is split by a glowing crack (the timeline split).
+ * Left of it is 1944 (bunker, watchtower, a patrolling soldier), right of it is 2145 (Aiden's ship, holo-table).
+ */
+export const CHRONO = (() => {
+  const n = (side: number, back: number) => nearStop('chrono-rebellion', side, back)
+  return {
+    tower: n(0.9, 8.6),
+    portal: n(0.15, 4.3),
+    // runs from the tower past the Pilot's left, so he stands on the 2145 side with his ship
+    crack: [[0.9, 7.3], [0.5, 6.4], [0.6, 5.5], [0.0, 4.7], [0.1, 3.8], [-0.6, 3.0], [-0.5, 2.2], [-1.1, 1.5], [-1.0, 0.7], [-1.5, 0.0], [-1.6, -0.9]].map(([a, b]) => n(a, b)),
+    bunker: n(-3.3, 5.5),
+    sandbags: n(-3.3, 4.05),
+    watch: n(-1.5, 7.6),
+    crate: n(-1.5, 5.3),
+    wire: [n(-3.5, 0.1), n(-2.75, -0.4), n(-2.0, -0.9)],
+    patrol: [n(-4.6, 3.2), n(-2.3, 1.9), n(-1.5, 3.6)],
+    pad: n(5.6, 4.7),
+    holo: n(1.9, 3.3),
+    pylons: [n(3.4, 6.4), n(7.2, 3.3)],
+    pods: n(6.6, 1.9),
+    // open ground in front of each era, so trees never hide the scene from the camera
+    views: [n(-3.4, -0.9), n(-1.6, -1.8), n(6.2, -0.4)],
+  }
+})()
 
 /** Where the centrepiece of every other island stands: behind the Pilot and a little to the left, clear of the ship. */
 export const CENTREPIECE: [number, number] = [-2.0 * S, -0.6 * S]
@@ -132,6 +159,19 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       [...h.postbox, 1.0],
       [...h.arcade, 1.0],
       ...h.lanterns.map((l): [number, number, number] => [...l, 0.7]),
+    ]
+  }
+  if (def.id === 'chrono-rebellion') {
+    const c = CHRONO
+    const mid = (a: [number, number], b: [number, number]): [number, number] => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+    const path = c.patrol.flatMap((w, i) => [w, mid(w, c.patrol[(i + 1) % c.patrol.length])])
+    return [
+      [...c.tower, 2.2], [...c.portal, 0.8], [...c.bunker, 2.2], [...c.sandbags, 1.3], [...c.watch, 1.0], [...c.crate, 0.8],
+      [...c.pad, 2.2], [...c.holo, 0.7], [...c.pods, 0.8],
+      ...[...c.wire, ...c.pylons].map((q): [number, number, number] => [...q, 0.6]),
+      ...path.map((q): [number, number, number] => [...q, 0.9]),
+      ...c.crack.map((q): [number, number, number] => [...q, 0.5]),
+      ...c.views.map((q): [number, number, number] => [...q, 2.0]),
     ]
   }
   return [[...CENTREPIECE, 3.3]]

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CENTREPIECE, FACE_YAW, groundY, type IslandDef } from '../layout'
 import { C, beam, blob, box, canvasTexture, cone, cyl, gear, hex, merge, paint, sphere, torus } from './kit'
+import { ChronoRebellion } from './Chrono'
 
 /**
  * One small diorama per island, each about what the project (or section) is:
@@ -89,79 +90,6 @@ function BehindTheSmile({ def, night }: { def: IslandDef; night: boolean }) {
       <Body g={parts.body} />
       <Glow g={parts.glow} night={night} />
       {night && <pointLight position={[0, 1.6, 1.6]} color="#ffd9a0" intensity={5} distance={6} />}
-    </Spot>
-  )
-}
-
-/* ---------------- Chrono Rebellion: half-brick, half-future clock tower with a time portal ---------------- */
-
-function clockTower(accent: THREE.Color): Parts {
-  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
-  const brick = hex('#a8574a'), brickDark = hex('#8c463c'), steel = hex('#565c78')
-  p.push(box([2.6, 0.3, 2.4], C.stone, [0, 0.15, 0]))
-  p.push(box([0.82, 3.7, 1.6], brick, [-0.41, 2.15, 0]))
-  p.push(box([0.82, 3.7, 1.6], steel, [0.41, 2.15, 0]))
-  for (let i = 0; i < 8; i++) p.push(box([0.84, 0.04, 1.62], brickDark, [-0.41, 0.6 + i * 0.42, 0]))
-  for (const x of [0.22, 0.6]) g.push(box([0.06, 3.1, 0.03], accent, [x, 2.0, 0.81]))
-  p.push(box([1.9, 0.2, 1.9], C.stoneDark, [0, 4.08, 0]))
-  p.push(cone(1.35, 1.4, hex('#4a3f6b'), [0, 4.88, 0], [0, Math.PI / 4, 0], 4))
-  p.push(torus(0.62, 0.06, C.gold, [0, 3.1, 0.82], undefined, Math.PI * 2, 28))
-  // sandbags (the WWII side)
-  ;[[-1.75, 0.25, 0.5], [-1.45, 0.25, 0.9], [-1.65, 0.55, 0.7], [-1.95, 0.25, 0.1]].forEach(([x, y, z], i) => p.push(blob(0.32, hex('#b8a77a'), [x, y, z], 0.55, i + 2)))
-  return { body: merge(p), glow: merge(g) }
-}
-
-function clockFace() {
-  return canvasTexture(256, 256, (ctx) => {
-    ctx.fillStyle = '#f6efe2'
-    ctx.beginPath()
-    ctx.arc(128, 128, 126, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.fillStyle = '#2b2730'
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2
-      ctx.fillRect(128 + Math.sin(a) * 100 - 4, 128 - Math.cos(a) * 100 - 4, 8, 8)
-    }
-  })
-}
-
-function ChronoRebellion({ def, night }: { def: IslandDef; night: boolean }) {
-  const accent = hex(def.accent)
-  const parts = useMemo(() => clockTower(accent), [def.accent]) // eslint-disable-line react-hooks/exhaustive-deps
-  const ring = useMemo(() => torus(0.95, 0.09, accent, undefined, undefined, Math.PI * 2, 32), [def.accent]) // eslint-disable-line react-hooks/exhaustive-deps
-  const face = useMemo(clockFace, [])
-  const hour = useRef<THREE.Mesh>(null), minute = useRef<THREE.Mesh>(null), portal = useRef<THREE.Group>(null)
-  useFrame((_, dt) => {
-    spin(minute, 'z', 1.2, dt) // time runs backwards here
-    spin(hour, 'z', 0.1, dt)
-    spin(portal, 'z', -0.6, dt)
-  })
-  return (
-    <Spot def={def}>
-      <Body g={parts.body} />
-      <Glow g={parts.glow} night={night} day="#b9a8e8" />
-      <mesh position={[0, 3.1, 0.815]}>
-        <circleGeometry args={[0.6, 32]} />
-        <meshBasicMaterial map={face} toneMapped={false} />
-      </mesh>
-      <mesh ref={minute} position={[0, 3.1, 0.83]}>
-        <planeGeometry args={[0.05, 0.9]} />
-        <meshBasicMaterial color="#2b2730" />
-      </mesh>
-      <mesh ref={hour} position={[0, 3.1, 0.835]} rotation={[0, 0, 1.2]}>
-        <planeGeometry args={[0.07, 0.6]} />
-        <meshBasicMaterial color="#2b2730" />
-      </mesh>
-      <group ref={portal} position={[2.05, 1.4, 0.2]}>
-        <mesh geometry={ring}>
-          <meshBasicMaterial vertexColors color={night ? '#ffffff' : '#d6ccf5'} toneMapped={false} />
-        </mesh>
-        <mesh>
-          <circleGeometry args={[0.88, 32]} />
-          <meshBasicMaterial color={def.accent} transparent opacity={0.28} side={THREE.DoubleSide} depthWrite={false} />
-        </mesh>
-      </group>
-      {night && <pointLight position={[2.05, 1.4, 1]} color={def.accent} intensity={6} distance={6} />}
     </Spot>
   )
 }
@@ -513,12 +441,12 @@ function Journey({ def }: { def: IslandDef }) {
 
 /* ---------------- router ---------------- */
 
-export function IslandLandmark({ def, night }: { def: IslandDef; night: boolean }) {
+export function IslandLandmark({ def, night, simple }: { def: IslandDef; night: boolean; simple: boolean }) {
   switch (def.id) {
     case 'behind-the-smile':
       return <BehindTheSmile def={def} night={night} />
     case 'chrono-rebellion':
-      return <ChronoRebellion def={def} night={night} />
+      return <ChronoRebellion def={def} night={night} simple={simple} />
     case 'sunken-greed':
       return <SunkenGreed def={def} night={night} />
     case 'paper-plane-dash':
