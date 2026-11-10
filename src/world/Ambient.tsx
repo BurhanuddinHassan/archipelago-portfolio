@@ -375,7 +375,7 @@ export function BlobShadows({ placements, night }: { placements: Placement[]; ni
     list.forEach((p, i) => {
       const s = SHADOW_SIZE[p.kind] * p.scale
       // nudged away from the sun so the blob reads as a cast shadow
-      m.makeScale(s, 1, s).setPosition(p.x - 0.25 * s, p.y + 0.13, p.z - 0.15 * s)
+      m.makeScale(s * 1.25, 1, s).setPosition(p.x + 0.45 * s, p.y + 0.13, p.z - 0.25 * s)
       mesh.setMatrixAt(i, m)
     })
     mesh.instanceMatrix.needsUpdate = true

@@ -17,7 +17,7 @@ type V3 = [number, number, number]
 
 function Piece({ body }: { body: THREE.BufferGeometry }) {
   return (
-    <mesh geometry={body}>
+    <mesh geometry={body} castShadow>
       <meshLambertMaterial vertexColors />
     </mesh>
   )
@@ -202,7 +202,7 @@ export function Cinema({ def, night }: { def: IslandDef; night: boolean }) {
         {night && <pointLight position={[0, 2.2, 1.6]} color="#9fb4ff" intensity={5} distance={7} />}
       </group>
       {[l, r].map((p, i) => (
-        <mesh key={i} geometry={seat} position={p} rotation={[0, FACE_YAW, 0]}>
+        <mesh key={i} castShadow geometry={seat} position={p} rotation={[0, FACE_YAW, 0]}>
           <meshLambertMaterial vertexColors />
         </mesh>
       ))}
@@ -237,7 +237,7 @@ export function PostBox({ def }: { def: IslandDef }) {
   const at = useSpot(def, HOME_PIECES.postbox)
   const g = useMemo(postbox, [])
   return (
-    <mesh geometry={g} position={at} rotation={[0, FACE_YAW, 0]}>
+    <mesh castShadow geometry={g} position={at} rotation={[0, FACE_YAW, 0]}>
       <meshLambertMaterial vertexColors />
     </mesh>
   )
@@ -318,7 +318,7 @@ export function Arcade({ def, interactive }: { def: IslandDef; interactive: bool
   return (
     // turned a little towards the Pilot (to its left on screen)
     <group position={at} rotation={[0, FACE_YAW - 0.35, 0]}>
-      <mesh geometry={g} {...events}>
+      <mesh castShadow geometry={g} {...events}>
         <meshLambertMaterial vertexColors emissive={hover ? '#3b1f10' : '#000000'} />
       </mesh>
       <Suspense fallback={null}>

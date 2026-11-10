@@ -13,7 +13,7 @@ type Parts = { body: THREE.BufferGeometry; glow?: THREE.BufferGeometry }
 
 function Body({ g, side }: { g: THREE.BufferGeometry; side?: THREE.Side }) {
   return (
-    <mesh geometry={g}>
+    <mesh geometry={g} castShadow>
       <meshLambertMaterial vertexColors side={side ?? THREE.FrontSide} />
     </mesh>
   )

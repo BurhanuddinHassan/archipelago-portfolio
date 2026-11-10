@@ -15,7 +15,7 @@ import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 
 const PALETTE = {
-  day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 1.9, sunColor: '#ffe3c2', hemi: 1.5 },
+  day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 2.4, sunColor: '#ffe3c2', hemi: 1.2 },
   night: { top: '#121a2e', horizon: '#3b3552', hemiSky: '#8aa0d0', hemiGround: '#3a3648', sun: 0.35, sunColor: '#b8c8ff', hemi: 0.75 },
 }
 
@@ -62,21 +62,32 @@ export default function World() {
   )
   const backdrop = useMemo(() => buildBackdrop(mobile), [mobile])
   const islandMaterial = useMemo(() => (lite ? new THREE.MeshLambertMaterial({ vertexColors: true }) : makeIslandMaterial()), [lite])
-  const placements = useMemo<WorldPlacement[]>(
+  // Plants are drawn per island (so off-screen islands are skipped entirely), plus one group for the backdrop.
+  const groups = useMemo<PropGroupDef[]>(
     () => [
-      ...islands.flatMap(({ def, placements }) =>
-        placements
+      ...islands.map(({ def, placements }) => ({
+        id: def.id,
+        centre: def.position,
+        list: placements
           // phones skip half the smallest undergrowth: many instances, little visual gain at that size
-          .filter((p, k) => !mobile || !['flowers', 'plant', 'fern'].includes(p.kind) || k % 2 === 0)
+          .filter((p, k) => !mobile || !SMALL.has(p.kind) || k % 2 === 0)
           .map((p) => ({ ...p, x: p.x + def.position[0], y: p.y + def.position[1], z: p.z + def.position[2] })),
-      ),
-      ...backdrop.placements,
+      })),
+      // far islands and gap islets: trees, bushes and rocks only
+      { id: 'backdrop', centre: null, list: backdrop.placements.filter((p) => !SMALL.has(p.kind)) },
     ],
     [islands, backdrop, mobile],
   )
+  const placements = useMemo(() => groups.flatMap((g) => g.list), [groups])
+  const activeIsland = useStore((s) => STOPS[s.activeStop]?.island ?? 'home')
+  const activeList = useMemo(() => groups.find((g) => g.id === activeIsland)?.list ?? [], [groups, activeIsland])
+  // Shadows exist only on the island the Pilot is on. Laptops/desktops get real cast shadows (trees, buildings,
+  // the Pilot, the ship); phones get cheap soft blobs; lite mode gets none.
+  const realShadows = !lite && !mobile
   return (
     <Canvas
       dpr={liveDpr}
+      shadows
       camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 420, position: [10, 7, 12] }}
       gl={{ antialias: !mobile, powerPreference: 'high-performance' }}
     >
@@ -96,14 +107,14 @@ export default function World() {
       <SkyDome top={c.top} horizon={c.horizon} />
       <fog attach="fog" args={[c.horizon, 70, 240]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
-      <directionalLight position={[12, 20, 8]} intensity={c.sun} color={c.sunColor} />
+      <Sun intensity={c.sun} color={c.sunColor} island={activeIsland} shadows={realShadows} />
       {islands.map(({ def, geometry }) => (
         <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} />
       ))}
       <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
       {!lite && (
         <>
-          <BlobShadows placements={placements} night={theme === 'night'} />
+          {mobile && <BlobShadows placements={activeList} night={theme === 'night'} />}
           <Waterfalls night={theme === 'night'} />
           <Balloons night={theme === 'night'} />
           <Birds flocks={mobile ? 2 : 4} />
@@ -115,11 +126,11 @@ export default function World() {
       {theme === 'night' && <NightSky />}
       <ModelGuard fallback={null}>
         <Suspense fallback={null}>
-          <Props placements={placements} sway={!lite} />
+          <Props groups={groups} sway={!lite} shadowIsland={realShadows ? activeIsland : null} />
         </Suspense>
       </ModelGuard>
       <Clouds count={lite ? 16 : mobile ? 26 : 56} night={theme === 'night'} />
-      <PilotRig night={theme === 'night'} />
+      <PilotRig night={theme === 'night'} blobShadow={!realShadows} />
       <ViewOffset />
     </Canvas>
   )
@@ -186,18 +197,50 @@ function Island({ def, geometry, material, night, labels }: { def: IslandDef; ge
   const desktop = labels
   return (
     <group position={def.position}>
-      <mesh geometry={geometry} material={material} />
+      <mesh geometry={geometry} material={material} receiveShadow />
       {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} />}
       {labels && <IslandLabel def={def} />}
     </group>
   )
 }
 
+/** The sun. Its shadow map covers only the island the Pilot is on, so the shadow pass stays small. */
+function Sun({ intensity, color, island, shadows }: { intensity: number; color: string; island: string; shadows: boolean }) {
+  const light = useRef<THREE.DirectionalLight>(null)
+  useEffect(() => {
+    const l = light.current
+    if (!l) return
+    const def = islandById(island)
+    const reach = def.radius * 1.25 + 3
+    l.target.position.set(...def.position)
+    // the sun sits high on the camera's left, so shadows stretch across the grass to the right, in plain view
+    l.position.set(def.position[0] - 44, def.position[1] + 60, def.position[2] + 28)
+    l.target.updateMatrixWorld()
+    const cam = l.shadow.camera
+    cam.left = -reach
+    cam.right = reach
+    cam.top = reach
+    cam.bottom = -reach
+    cam.near = 20
+    cam.far = 130
+    cam.updateProjectionMatrix()
+  }, [island])
+  return (
+    <directionalLight ref={light} intensity={intensity} color={color} castShadow={shadows} shadow-mapSize={[2048, 2048]} shadow-bias={-0.0004} shadow-normalBias={0.04} shadow-radius={5} />
+  )
+}
+
+type PropGroupDef = { id: string; centre: [number, number, number] | null; list: WorldPlacement[] }
+
+/** Undergrowth: only drawn on islands near the camera. */
+const SMALL = new Set<PropKind>(['flowers', 'plant', 'fern'])
+const SMALL_RANGE = 62
+
 /**
  * Trees, bushes, rocks and flowers: CC0 Quaternius "Ultimate Nature" models, restyled into props.glb
- * (warmer greens, sandstone rocks, smooth shading). One instanced draw call per prop type for the whole world.
+ * (warmer greens, sandstone rocks, smooth shading). Instanced per island and prop type, sharing one material.
  */
-function Props({ placements, sway }: { placements: WorldPlacement[]; sway: boolean }) {
+function Props({ groups, sway, shadowIsland }: { groups: PropGroupDef[]; sway: boolean; shadowIsland: string | null }) {
   const { nodes } = useGLTF(PROPS_URL, DRACO_PATH) as unknown as { nodes: Record<string, THREE.Mesh> }
   // Wind: every plant leans back and forth, more the higher up the vertex is (done in the vertex shader).
   const wind = useMemo(() => ({ uTime: { value: 0 } }), [])
@@ -220,25 +263,43 @@ transformed.z += cos(uTime * 1.05 + swayP * 1.4) * swayH * swayH * 0.008;`,
     return m
   }, [sway, wind])
   useFrame((s) => (wind.uTime.value = s.clock.elapsedTime))
-  const groups = useMemo(() => {
-    const byKind = new Map<PropKind, WorldPlacement[]>()
-    for (const p of placements) {
-      if (!nodes[p.kind]) continue
-      if (!byKind.has(p.kind)) byKind.set(p.kind, [])
-      byKind.get(p.kind)!.push(p)
-    }
-    return [...byKind.entries()]
-  }, [placements, nodes])
   return (
     <>
-      {groups.map(([kind, list]) => (
-        <PropInstances key={kind} geometry={nodes[kind].geometry} material={material} list={list} />
+      {groups.map((g) => (
+        <PropGroup key={g.id} group={g} nodes={nodes} material={material} cast={g.id === shadowIsland} />
       ))}
     </>
   )
 }
 
-function PropInstances({ geometry, material, list }: { geometry: THREE.BufferGeometry; material: THREE.Material; list: WorldPlacement[] }) {
+function PropGroup({ group, nodes, material, cast }: { group: PropGroupDef; nodes: Record<string, THREE.Mesh>; material: THREE.Material; cast: boolean }) {
+  const byKind = useMemo(() => {
+    const m = new Map<PropKind, WorldPlacement[]>()
+    for (const p of group.list) {
+      if (!nodes[p.kind]) continue
+      if (!m.has(p.kind)) m.set(p.kind, [])
+      m.get(p.kind)!.push(p)
+    }
+    return [...m.entries()]
+  }, [group, nodes])
+  const small = useRef<THREE.Group>(null)
+  const tick = useRef(0)
+  const centre = useMemo(() => (group.centre ? new THREE.Vector3(...group.centre) : null), [group])
+  useFrame(({ camera }) => {
+    if (!small.current || !centre || tick.current++ % 15) return
+    small.current.visible = camera.position.distanceTo(centre) < SMALL_RANGE
+  })
+  const render = (pick: (k: PropKind) => boolean, shadows: boolean) =>
+    byKind.filter(([k]) => pick(k)).map(([kind, list]) => <PropInstances key={kind} geometry={nodes[kind].geometry} material={material} list={list} cast={shadows} />)
+  return (
+    <>
+      {render((k) => !SMALL.has(k), cast)}
+      <group ref={small}>{render((k) => SMALL.has(k), false)}</group>
+    </>
+  )
+}
+
+function PropInstances({ geometry, material, list, cast }: { geometry: THREE.BufferGeometry; material: THREE.Material; list: WorldPlacement[]; cast: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null)
   useEffect(() => {
     const mesh = ref.current
@@ -253,9 +314,10 @@ function PropInstances({ geometry, material, list }: { geometry: THREE.BufferGeo
     })
     mesh.instanceMatrix.needsUpdate = true
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+    // a correct bounding sphere lets the renderer skip this whole batch when its island is off screen
     mesh.computeBoundingSphere()
   }, [list])
-  return <instancedMesh ref={ref} args={[geometry, material, list.length]} frustumCulled={false} />
+  return <instancedMesh ref={ref} args={[geometry, material, list.length]} castShadow={cast} />
 }
 useGLTF.preload(PROPS_URL, DRACO_PATH)
 
@@ -329,7 +391,7 @@ const HOP = 0.14
 
 export type PilotPose = 'ground' | 'board' | 'sail' | 'land'
 
-function PilotRig({ night }: { night: boolean }) {
+function PilotRig({ night, blobShadow }: { night: boolean; blobShadow: boolean }) {
   const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
   const moors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...mooringAnchor(s))), [])
   const pilot = useRef<THREE.Group>(null)
@@ -418,7 +480,7 @@ function PilotRig({ night }: { night: boolean }) {
       pl.rotation.set(0, lerpAngle(shipYaw, faceCam, k), 0)
     }
     pl.position.copy(tmp.pos)
-    if (shadow.current) shadow.current.visible = pose.current === 'ground'
+    if (shadow.current) shadow.current.visible = blobShadow && pose.current === 'ground'
     if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
 
     // ---- ship details
@@ -542,6 +604,7 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
       const m = o as THREE.Mesh
       if (!m.isMesh) return
       m.frustumCulled = false
+      m.castShadow = true
       // (The texture atlas was re-packed with 8 px padding around every UV island by tools/rebake-character.mjs,
       // so normal mipmapping no longer bleeds skin colour into the hair.)
     })

@@ -220,7 +220,7 @@ export function SkyShip({
   const propGeo = useMemo(propeller, [])
   return (
     <group>
-      <mesh geometry={body}>
+      <mesh geometry={body} castShadow>
         <meshLambertMaterial vertexColors side={THREE.DoubleSide} />
       </mesh>
       <mesh geometry={sailGeo} ref={sailRef}>
