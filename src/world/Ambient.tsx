@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
-import { ISLANDS, STOPS, mooringAnchor, stopAnchor } from './layout'
+import { ISLANDS, ISLAND_TOP, STOPS, groundY, mooringAnchor, stopAnchor, waterfallSpot, type IslandDef } from './layout'
 import { buildIsland, type Placement } from './islandGen'
 import { C, box, cone, cyl, hex, merge, paint } from './landmarks/kit'
 
@@ -235,4 +235,135 @@ export function Birds({ flocks = 3 }: { flocks?: number }) {
     mesh.instanceMatrix.needsUpdate = true
   })
   return <instancedMesh ref={ref} args={[geo, material, data.length * PER]} frustumCulled={false} />
+}
+
+/* ---------------- Waterfalls ---------------- */
+
+const FALL_LENGTH = 17
+
+/** Pond + stream on the grass (follows the ground) and the sheet of water curving off the rim. */
+function waterGeometry(def: IslandDef, fall: NonNullable<ReturnType<typeof waterfallSpot>>) {
+  const dir = new THREE.Vector2(Math.cos(fall.t), Math.sin(fall.t)), side = new THREE.Vector2(-dir.y, dir.x)
+  const pos: number[] = [], idx: number[] = []
+  // stream: a strip from the pond to the rim
+  const r0 = Math.hypot(...fall.pond), N = 8, W = 0.75
+  for (let i = 0; i <= N; i++) {
+    const r = r0 + ((fall.lip - r0) * i) / N
+    const cx = dir.x * r, cz = dir.y * r
+    const y = (i === N ? ISLAND_TOP - 0.02 : groundY(def, cx, cz)) + 0.07
+    pos.push(cx - side.x * W, y, cz - side.y * W, cx + side.x * W, y, cz + side.y * W)
+    if (i < N) idx.push(i * 2, i * 2 + 2, i * 2 + 1, i * 2 + 1, i * 2 + 2, i * 2 + 3)
+  }
+  // pond: a fan around the stream's start
+  const c = pos.length / 3, py = groundY(def, fall.pond[0], fall.pond[1]) + 0.07
+  pos.push(fall.pond[0], py, fall.pond[1])
+  for (let k = 0; k <= 18; k++) {
+    const a = (k / 18) * Math.PI * 2
+    pos.push(fall.pond[0] + Math.cos(a) * 1.5, py, fall.pond[1] + Math.sin(a) * 1.3)
+    if (k < 18) idx.push(c, c + 2 + k, c + 1 + k)
+  }
+  const flat = new THREE.BufferGeometry()
+  flat.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  flat.setIndex(idx)
+  flat.computeVertexNormals()
+  // falling sheet: a plane bent outwards over the rim, then straight down
+  const sheet = new THREE.PlaneGeometry(W * 2, FALL_LENGTH, 4, 28)
+  const p = sheet.attributes.position as THREE.BufferAttribute
+  for (let i = 0; i < p.count; i++) {
+    const v = 0.5 - p.getY(i) / FALL_LENGTH // 0 at the rim, 1 at the bottom
+    const out = fall.lip + 0.9 * (1 - Math.exp(-v * 7)), across = p.getX(i) * (1 + v * 0.5)
+    p.setXYZ(i, dir.x * out + side.x * across, ISLAND_TOP + 0.05 - FALL_LENGTH * v * v ** 0.15, dir.y * out + side.y * across)
+  }
+  return { flat, sheet }
+}
+
+export function Waterfalls({ night }: { night: boolean }) {
+  const falls = useMemo(
+    () =>
+      ISLANDS.flatMap((def) => {
+        const fall = waterfallSpot(def)
+        return fall ? [{ def, ...waterGeometry(def, fall) }] : []
+      }),
+    [],
+  )
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uDim: { value: 1 } }), [])
+  useFrame((s) => {
+    uniforms.uTime.value = s.clock.elapsedTime
+    uniforms.uDim.value = night ? 0.45 : 1
+  })
+  return (
+    <>
+      {falls.map(({ def, flat, sheet }) => (
+        <group key={def.id} position={def.position}>
+          <mesh geometry={flat}>
+            <meshBasicMaterial color={night ? '#35627c' : '#8fd8ec'} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} />
+          </mesh>
+          <mesh geometry={sheet}>
+            <shaderMaterial
+              transparent
+              depthWrite={false}
+              side={THREE.DoubleSide}
+              uniforms={uniforms}
+              vertexShader={'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'}
+              fragmentShader={[
+                'uniform float uTime; uniform float uDim; varying vec2 vUv;',
+                'void main() {',
+                '  float v = 1.0 - vUv.y;', // 0 at the rim, 1 at the bottom
+                '  float streak = sin(vUv.x * 26.0 + sin(v * 9.0 - uTime * 2.0) * 1.5) * 0.5 + 0.5;',
+                '  float flow = sin(v * 30.0 - uTime * 7.0 + vUv.x * 5.0) * 0.5 + 0.5;',
+                '  vec3 col = mix(vec3(0.56, 0.85, 0.93), vec3(1.0), streak * 0.6 + flow * 0.25) * uDim;',
+                '  float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);',
+                '  float alpha = edge * (0.55 + streak * 0.35) * (1.0 - smoothstep(0.35, 1.0, v));',
+                '  gl_FragColor = vec4(col, alpha);',
+                '  #include <colorspace_fragment>',
+                '}',
+              ].join('\n')}
+            />
+          </mesh>
+        </group>
+      ))}
+    </>
+  )
+}
+
+/* ---------------- Soft shadows ---------------- */
+
+const SHADOW_SIZE: Record<string, number> = { tree_a: 1.5, tree_b: 1.3, tree_c: 1.4, pine: 1.0, pine_b: 1.1, birch: 1.0, bush: 0.75, bush_berries: 0.75, rock: 0.55, rock_moss: 0.55, rock_moss_b: 0.6, stump: 0.5, log: 0.7 }
+
+export function shadowTexture() {
+  const c = document.createElement('canvas')
+  c.width = c.height = 64
+  const ctx = c.getContext('2d')!
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32)
+  g.addColorStop(0, 'rgba(255,255,255,1)')
+  g.addColorStop(0.55, 'rgba(255,255,255,0.75)')
+  g.addColorStop(1, 'rgba(255,255,255,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, 64, 64)
+  return new THREE.CanvasTexture(c)
+}
+
+/** A soft dark blob on the grass under every tree, bush and rock: one instanced mesh, no shadow maps. */
+export function BlobShadows({ placements, night }: { placements: Placement[]; night: boolean }) {
+  const list = useMemo(() => placements.filter((p) => SHADOW_SIZE[p.kind]), [placements])
+  const tex = useMemo(shadowTexture, [])
+  const geo = useMemo(() => new THREE.CircleGeometry(1, 14).rotateX(-Math.PI / 2), [])
+  const ref = useRef<THREE.InstancedMesh>(null)
+  useEffect(() => {
+    const mesh = ref.current
+    if (!mesh) return
+    const m = new THREE.Matrix4()
+    list.forEach((p, i) => {
+      const s = SHADOW_SIZE[p.kind] * p.scale
+      // nudged away from the sun so the blob reads as a cast shadow
+      m.makeScale(s, 1, s).setPosition(p.x - 0.25 * s, p.y + 0.13, p.z - 0.15 * s)
+      mesh.setMatrixAt(i, m)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+  }, [list])
+  return (
+    <instancedMesh ref={ref} args={[geo, undefined, list.length]} frustumCulled={false} renderOrder={1}>
+      <meshBasicMaterial color="#12300f" alphaMap={tex} transparent opacity={night ? 0.2 : 0.3} depthWrite={false} polygonOffset polygonOffsetFactor={-3} />
+    </instancedMesh>
+  )
 }

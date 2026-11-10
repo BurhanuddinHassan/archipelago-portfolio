@@ -10,7 +10,7 @@ import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
 import { IslandLandmark } from './landmarks/Islands'
-import { Balloons, Birds, Clouds, buildBackdrop } from './Ambient'
+import { Balloons, Birds, BlobShadows, Clouds, Waterfalls, buildBackdrop, shadowTexture } from './Ambient'
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 
@@ -79,6 +79,8 @@ export default function World() {
         <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} />
       ))}
       <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
+      <BlobShadows placements={placements} night={theme === 'night'} />
+      <Waterfalls night={theme === 'night'} />
       <Balloons night={theme === 'night'} />
       <Birds flocks={mobile ? 2 : 4} />
       <ModelGuard fallback={null}>
@@ -251,6 +253,8 @@ function PilotRig({ night }: { night: boolean }) {
   const propRef = useRef<THREE.Group>(null)
   const sailRef = useRef<THREE.Mesh>(null)
   const lanternRef = useRef<THREE.MeshBasicMaterial>(null)
+  const shadow = useRef<THREE.Mesh>(null)
+  const shadowTex = useMemo(shadowTexture, [])
   const { camera, gl } = useThree()
   const orbit = useLookAround(gl.domElement)
   const sph = useMemo(() => new THREE.Spherical(), [])
@@ -330,6 +334,7 @@ function PilotRig({ night }: { night: boolean }) {
       pl.rotation.set(0, lerpAngle(shipYaw, faceCam, k), 0)
     }
     pl.position.copy(tmp.pos)
+    if (shadow.current) shadow.current.visible = pose.current === 'ground'
     if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
 
     // ---- ship details
@@ -361,6 +366,10 @@ function PilotRig({ night }: { night: boolean }) {
   return (
     <>
       <group ref={pilot}>
+        <mesh ref={shadow} position={[-0.12, 0.04, -0.08]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <circleGeometry args={[0.75, 16]} />
+          <meshBasicMaterial color="#12300f" alphaMap={shadowTex} transparent opacity={0.38} depthWrite={false} polygonOffset polygonOffsetFactor={-3} />
+        </mesh>
         {/* night fill light in front of the Pilot, so his face isn't lost against lit windows */}
         {night && <pointLight position={[0, 3.2, 2.6]} color="#ffe2b8" intensity={3} distance={5.5} decay={2} />}
         <ModelGuard fallback={<PilotPlaceholder />}>

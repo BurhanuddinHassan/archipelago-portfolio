@@ -1,5 +1,5 @@
 /** World layout: where each island floats and where each tour stop stands. */
-import { islandSurface } from './islandGen'
+import { islandSurface, makeOutline } from './islandGen'
 
 export type IslandDef = {
   id: string
@@ -89,6 +89,17 @@ export const CENTREPIECE: [number, number] = [-2.0 * S, -0.6 * S]
 
 export const islandSeed = (id: string) => id.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 100000
 
+/** Islands with a waterfall, and the direction (angle in the x/z plane) it spills towards. */
+const WATERFALLS: Record<string, number> = { home: 0.1, 'sunken-greed': -0.5, journey: -0.45 }
+
+/** Where an island's waterfall leaves the rim, and the pond that feeds it (island-local). */
+export function waterfallSpot(def: IslandDef) {
+  const t = WATERFALLS[def.id]
+  if (t === undefined) return null
+  const lip = makeOutline(def.radius, islandSeed(def.id))(t) * 1.03
+  return { t, lip, pond: [Math.cos(t) * lip * 0.74, Math.sin(t) * lip * 0.74] as [number, number] }
+}
+
 /** Spots on an island where nothing may grow: stops, the ship's mooring, and landmark footprints (x, z, radius). */
 export function clearSpots(def: IslandDef): [number, number, number][] {
   const spots: [number, number, number][] = []
@@ -100,6 +111,11 @@ export function clearSpots(def: IslandDef): [number, number, number][] {
       spots.push([st.offset[0] + CAM_DIR[0] * d, st.offset[1] + CAM_DIR[1] * d, r])
   }
   for (const l of landmarkSpots(def)) spots.push(l)
+  const fall = waterfallSpot(def)
+  if (fall) {
+    spots.push([...fall.pond, 1.9])
+    spots.push([fall.pond[0] * 1.2, fall.pond[1] * 1.2, 1.2])
+  }
   return spots
 }
 

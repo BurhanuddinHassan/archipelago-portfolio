@@ -69,7 +69,7 @@ const col = (hex: string) => new THREE.Color(hex)
 export type SurfaceOpts = { radius: number; seed: number; top: number; keepClear?: [number, number, number][] }
 
 /** The island's outline radius at angle theta. */
-function makeOutline(R: number, seed: number) {
+export function makeOutline(R: number, seed: number) {
   const edge = ringNoise(seed, 5)
   return (t: number) => R * (1 + 0.14 * edge(t))
 }
