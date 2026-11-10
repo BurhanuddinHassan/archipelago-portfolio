@@ -10,7 +10,7 @@ import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
 import { IslandLandmark } from './landmarks/Islands'
-import { Balloons, Birds, BlobShadows, Clouds, Waterfalls, buildBackdrop, shadowTexture } from './Ambient'
+import { Balloons, Birds, BlobShadows, Clouds, Fireflies, NightSky, Waterfalls, WindStreaks, buildBackdrop, shadowTexture } from './Ambient'
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 
@@ -108,11 +108,14 @@ export default function World() {
           <Waterfalls night={theme === 'night'} />
           <Balloons night={theme === 'night'} />
           <Birds flocks={mobile ? 2 : 4} />
+          <WindStreaks count={mobile ? 7 : 12} />
+          {theme === 'night' && <Fireflies perIsland={mobile ? 10 : 16} />}
         </>
       )}
+      {theme === 'night' && <NightSky />}
       <ModelGuard fallback={null}>
         <Suspense fallback={null}>
-          <Props placements={placements} />
+          <Props placements={placements} sway={!lite} />
         </Suspense>
       </ModelGuard>
       <Clouds count={lite ? 16 : mobile ? 26 : 56} night={theme === 'night'} />
@@ -160,9 +163,29 @@ function Island({ def, geometry, material, night, labels }: { def: IslandDef; ge
  * Trees, bushes, rocks and flowers: CC0 Quaternius "Ultimate Nature" models, restyled into props.glb
  * (warmer greens, sandstone rocks, smooth shading). One instanced draw call per prop type for the whole world.
  */
-function Props({ placements }: { placements: WorldPlacement[] }) {
+function Props({ placements, sway }: { placements: WorldPlacement[]; sway: boolean }) {
   const { nodes } = useGLTF(PROPS_URL, DRACO_PATH) as unknown as { nodes: Record<string, THREE.Mesh> }
-  const material = useMemo(() => new THREE.MeshLambertMaterial({ vertexColors: true }), [])
+  // Wind: every plant leans back and forth, more the higher up the vertex is (done in the vertex shader).
+  const wind = useMemo(() => ({ uTime: { value: 0 } }), [])
+  const material = useMemo(() => {
+    const m = new THREE.MeshLambertMaterial({ vertexColors: true })
+    if (sway)
+      m.onBeforeCompile = (sh) => {
+        sh.uniforms.uTime = wind.uTime
+        sh.vertexShader = sh.vertexShader
+          .replace('#include <common>', '#include <common>\nuniform float uTime;')
+          .replace(
+            '#include <begin_vertex>',
+            `#include <begin_vertex>
+float swayH = max(transformed.y, 0.0);
+float swayP = instanceMatrix[3].x * 0.31 + instanceMatrix[3].z * 0.23;
+transformed.x += sin(uTime * 1.3 + swayP) * swayH * swayH * 0.012;
+transformed.z += cos(uTime * 1.05 + swayP * 1.4) * swayH * swayH * 0.008;`,
+          )
+      }
+    return m
+  }, [sway, wind])
+  useFrame((s) => (wind.uTime.value = s.clock.elapsedTime))
   const groups = useMemo(() => {
     const byKind = new Map<PropKind, WorldPlacement[]>()
     for (const p of placements) {

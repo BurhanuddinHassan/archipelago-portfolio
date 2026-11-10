@@ -386,3 +386,138 @@ export function BlobShadows({ placements, night }: { placements: Placement[]; ni
     </instancedMesh>
   )
 }
+
+/* ---------------- Night sky ---------------- */
+
+/** Stars and a moon, far away on the sky dome (night only). */
+export function NightSky() {
+  const stars = useMemo(() => {
+    const r = rng(909), pos: number[] = []
+    for (let i = 0; i < 1300; i++) {
+      const a = r() * Math.PI * 2, y = -0.3 + r() * 1.3, h = Math.sqrt(1 - y * y)
+      pos.push(Math.cos(a) * h * 320, y * 320, Math.sin(a) * h * 320)
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    return g
+  }, [])
+  const moonAt: [number, number, number] = [-190, 48, -230]
+  return (
+    <>
+      <points geometry={stars} frustumCulled={false}>
+        <pointsMaterial color="#fff6e0" size={2.6} sizeAttenuation={false} transparent opacity={0.85} fog={false} depthWrite={false} />
+      </points>
+      <mesh position={moonAt}>
+        <sphereGeometry args={[13, 24, 16]} />
+        <meshBasicMaterial color="#fff3d4" fog={false} />
+      </mesh>
+      <mesh position={moonAt}>
+        <sphereGeometry args={[21, 24, 16]} />
+        <meshBasicMaterial color="#cfd8ff" fog={false} transparent opacity={0.12} depthWrite={false} />
+      </mesh>
+    </>
+  )
+}
+
+/** Fireflies drifting just above the grass of every main island (night only). */
+export function Fireflies({ perIsland = 16 }: { perIsland?: number }) {
+  const geo = useMemo(() => {
+    const r = rng(31337), pos: number[] = [], seed: number[] = []
+    for (const def of ISLANDS)
+      for (let i = 0; i < perIsland; i++) {
+        const a = r() * Math.PI * 2, d = Math.sqrt(r()) * def.radius * 0.8
+        const x = Math.cos(a) * d, z = Math.sin(a) * d
+        pos.push(def.position[0] + x, def.position[1] + groundY(def, x, z) + 0.5 + r() * 2.4, def.position[2] + z)
+        seed.push(r() * 100)
+      }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('seed', new THREE.Float32BufferAttribute(seed, 1))
+    return g
+  }, [perIsland])
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
+  useFrame((s) => (uniforms.uTime.value = s.clock.elapsedTime))
+  return (
+    <points geometry={geo} frustumCulled={false}>
+      <shaderMaterial
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        uniforms={uniforms}
+        vertexShader={[
+          'attribute float seed; uniform float uTime; varying float vGlow;',
+          'void main() {',
+          '  vec3 p = position + vec3(sin(uTime * 0.6 + seed), sin(uTime * 0.9 + seed * 1.7) * 0.5, cos(uTime * 0.5 + seed * 2.3)) * 0.7;',
+          '  vGlow = 0.35 + 0.65 * (sin(uTime * 2.0 + seed * 5.0) * 0.5 + 0.5);',
+          '  vec4 mv = modelViewMatrix * vec4(p, 1.0);',
+          '  gl_PointSize = clamp(260.0 / -mv.z, 3.0, 16.0);',
+          '  gl_Position = projectionMatrix * mv;',
+          '}',
+        ].join('\n')}
+        fragmentShader={[
+          'varying float vGlow;',
+          'void main() {',
+          '  float d = length(gl_PointCoord - 0.5);',
+          '  gl_FragColor = vec4(vec3(1.0, 0.92, 0.45), pow(smoothstep(0.5, 0.0, d), 1.6) * vGlow * 1.4);',
+          '}',
+        ].join('\n')}
+      />
+    </points>
+  )
+}
+
+/* ---------------- Wind streaks ---------------- */
+
+/** Thin white ribbons of wind that curl once and sweep through the gaps between islands. One mesh, one shader. */
+export function WindStreaks({ count = 12 }: { count?: number }) {
+  const geo = useMemo(() => {
+    const r = rng(555), free = makeFree()
+    const pos: number[] = [], data: number[] = [], idx: number[] = []
+    const N = 48
+    for (let tries = 0, n = 0; tries < 500 && n < count; tries++) {
+      const x0 = (r() - 0.5) * 210, z0 = (r() - 0.5) * 190 - 8
+      if (!free(x0, z0, 7)) continue
+      const y0 = -4 + r() * 26, yaw = (r() - 0.5) * 0.9, len = 22 + r() * 16, loopAt = 0.3 + r() * 0.3, loopR = 1.2 + r() * 1.2
+      const dir = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw)), sideV = new THREE.Vector3(-dir.z, 0.9, dir.x).normalize().multiplyScalar(0.09)
+      const base = pos.length / 3, phase = r()
+      for (let i = 0; i <= N; i++) {
+        const s = i / N
+        const th = Math.min(1, Math.max(0, (s - loopAt) / 0.22)) * Math.PI * 2 // one curl partway along
+        const along = (s - 0.5) * len - Math.sin(th) * loopR, up = Math.sin(s * Math.PI * 2) * 1.2 + (1 - Math.cos(th)) * loopR
+        const cx = x0 + dir.x * along, cy = y0 + up, cz = z0 + dir.z * along
+        pos.push(cx - sideV.x, cy - sideV.y, cz - sideV.z, cx + sideV.x, cy + sideV.y, cz + sideV.z)
+        data.push(s, phase, s, phase)
+        if (i < N) idx.push(base + i * 2, base + i * 2 + 1, base + i * 2 + 2, base + i * 2 + 1, base + i * 2 + 3, base + i * 2 + 2)
+      }
+      n++
+    }
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+    g.setAttribute('data', new THREE.Float32BufferAttribute(data, 2))
+    g.setIndex(idx)
+    return g
+  }, [count])
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
+  useFrame((s) => (uniforms.uTime.value = s.clock.elapsedTime))
+  return (
+    <mesh geometry={geo} frustumCulled={false}>
+      <shaderMaterial
+        transparent
+        depthWrite={false}
+        side={THREE.DoubleSide}
+        uniforms={uniforms}
+        vertexShader={'attribute vec2 data; varying vec2 vData; void main(){ vData = data; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'}
+        fragmentShader={[
+          'uniform float uTime; varying vec2 vData;',
+          'void main() {',
+          // a bright head runs along the ribbon with a fading tail, then the ribbon rests before the next gust
+          '  float head = fract(uTime * 0.09 + vData.y) * 2.4 - 0.2;',
+          '  float d = head - vData.x;',
+          '  float a = smoothstep(0.0, 0.03, d) * (1.0 - smoothstep(0.03, 0.4, d));',
+          '  gl_FragColor = vec4(1.0, 1.0, 1.0, a * 0.75);',
+          '}',
+        ].join('\n')}
+      />
+    </mesh>
+  )
+}
