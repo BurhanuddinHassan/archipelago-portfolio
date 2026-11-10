@@ -1,13 +1,17 @@
 import { create } from 'zustand'
 
 type Theme = 'day' | 'night'
+/** low = always lite, high = always full detail, auto = decided by the measured frame rate */
+export type Graphics = 'low' | 'auto' | 'high'
 
 type State = {
   /** Continuous tour position: 0 = first stop, 1 = second stop, … */
   progress: number
   activeStop: number
   theme: Theme
+  graphics: Graphics
   toast: string | null
+  cycleGraphics: () => Graphics
   setProgress: (p: number) => void
   toggleTheme: () => void
   showToast: (msg: string) => void
@@ -21,10 +25,31 @@ const savedTheme = (): Theme => {
   }
 }
 
+const savedGraphics = (): Graphics => {
+  try {
+    const g = localStorage.getItem('graphics')
+    return g === 'low' || g === 'high' ? g : 'auto'
+  } catch {
+    return 'auto'
+  }
+}
+
 export const useStore = create<State>((set, get) => ({
   progress: 0,
   activeStop: 0,
   theme: savedTheme(),
+  graphics: savedGraphics(),
+  cycleGraphics: () => {
+    const order: Graphics[] = ['auto', 'high', 'low']
+    const graphics = order[(order.indexOf(get().graphics) + 1) % order.length]
+    try {
+      localStorage.setItem('graphics', graphics)
+    } catch {
+      /* storage unavailable: the choice just won't persist */
+    }
+    set({ graphics })
+    return graphics
+  },
   toast: null,
   setProgress: (p) => {
     const active = Math.round(p)

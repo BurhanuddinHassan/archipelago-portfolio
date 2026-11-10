@@ -95,6 +95,14 @@ function TopBar() {
   const theme = useStore((s) => s.theme)
   const toggleTheme = useStore((s) => s.toggleTheme)
   const showToast = useStore((s) => s.showToast)
+  const graphics = useStore((s) => s.graphics)
+  const cycleGraphics = useStore((s) => s.cycleGraphics)
+  const GFX = { auto: 'Auto', high: 'High', low: 'Low' }
+  const GFX_HINT = {
+    auto: 'Graphics: Auto. Detail adjusts to how well your device keeps up.',
+    high: 'Graphics: High. Full detail, always.',
+    low: 'Graphics: Low. Lighter scene for smoother motion.',
+  }
   return (
     <header className="topbar">
       <a className="mark" href="#home">{profile.name}</a>
@@ -102,6 +110,15 @@ function TopBar() {
         <button className="btn small" onClick={() => showToast('Adventure Mode is coming soon. The tour is live now.')}>
           <span className="long">Explore freely</span>
           <span className="short">Explore</span>
+        </button>
+        <button
+          className="btn small"
+          onClick={() => showToast(GFX_HINT[cycleGraphics()])}
+          aria-label={`Graphics quality: ${GFX[graphics]}. Click to change.`}
+          title="Graphics quality"
+        >
+          <span className="long">Graphics: </span>
+          {GFX[graphics]}
         </button>
         <button className="icon-btn" onClick={toggleTheme} aria-label={theme === 'day' ? 'Switch to night' : 'Switch to day'}>
           {theme === 'day' ? '☾' : '☀'}

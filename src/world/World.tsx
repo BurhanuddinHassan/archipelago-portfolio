@@ -36,11 +36,14 @@ export default function World() {
   // Start at a safe resolution and let the FPS monitor raise or lower it for this device.
   const [dpr, setDpr] = useState(mobile ? 1.25 : 1.5)
   const maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2)
-  // Lite mode drops the extras (rock shader detail, waterfalls, shadows, balloons, birds, wind, fireflies).
-  // It only switches on when the site is truly struggling: under 22 fps for 5 seconds in a row at the lowest
-  // resolution (see LiteWatch). It lasts for this visit only. ?lite forces it on, ?full keeps it off.
-  const query = useMemo(() => new URLSearchParams(window.location.search), [])
-  const [lite, setLite] = useState(() => query.has('lite'))
+  // Graphics setting (button in the top bar, remembered): low = always lite, high = always full detail at full
+  // resolution, auto = measured. Lite drops the extras: rock shader detail, waterfalls, shadows, balloons, birds,
+  // wind, fireflies, butterflies. In auto it switches on only under sustained heavy lag and switches back off
+  // when the device keeps up again (see AutoWatch).
+  const graphics = useStore((s) => s.graphics)
+  const [autoLite, setAutoLite] = useState(false)
+  const lite = graphics === 'low' || (graphics === 'auto' && autoLite)
+  const liveDpr = graphics === 'high' ? maxDpr : graphics === 'low' ? Math.min(1, maxDpr) : dpr
   useEffect(() => {
     try {
       localStorage.removeItem('lite') // an earlier build remembered lite mode too eagerly
@@ -73,19 +76,23 @@ export default function World() {
   )
   return (
     <Canvas
-      dpr={dpr}
+      dpr={liveDpr}
       camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 420, position: [10, 7, 12] }}
       gl={{ antialias: !mobile, powerPreference: 'high-performance' }}
     >
-      {/* resolution steps down below 30 fps and back up above 50 fps; it never triggers lite mode by itself */}
-      <PerformanceMonitor
-        bounds={() => [30, 50]}
-        onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))}
-        onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))}
-        flipflops={4}
-        onFallback={() => setDpr(1)}
-      />
-      {!lite && !query.has('full') && <LiteWatch atFloor={dpr <= 0.75} onStruggle={() => setLite(true)} />}
+      {graphics === 'auto' && (
+        <>
+          {/* resolution steps down below 30 fps and back up above 50 fps */}
+          <PerformanceMonitor
+            bounds={() => [30, 50]}
+            onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))}
+            onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))}
+            flipflops={4}
+            onFallback={() => setDpr(1)}
+          />
+          <AutoWatch lite={autoLite} atFloor={dpr <= 0.75} setLite={setAutoLite} />
+        </>
+      )}
       <SkyDome top={c.top} horizon={c.horizon} />
       <fog attach="fog" args={[c.horizon, 70, 240]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
@@ -118,9 +125,17 @@ export default function World() {
   )
 }
 
-/** Watches the real frame rate and reports only sustained, severe lag (ignores loading and background tabs). */
-function LiteWatch({ atFloor, onStruggle }: { atFloor: boolean; onStruggle: () => void }) {
-  const w = useRef({ frames: 0, time: 0, slow: 0 })
+/**
+ * Auto graphics: measures the real frame rate once a second (ignoring loading and background tabs).
+ * - Full -> lite: under 22 fps for 5 seconds in a row while already at the lowest resolution.
+ * - Lite -> full: above 48 fps for 10 seconds in a row. Allowed twice per visit, so a device that can't
+ *   hold full detail settles in lite instead of flipping back and forth.
+ */
+function AutoWatch({ lite, atFloor, setLite }: { lite: boolean; atFloor: boolean; setLite: (v: boolean) => void }) {
+  const w = useRef({ frames: 0, time: 0, streak: 0, recoveries: 0 })
+  useEffect(() => {
+    w.current.streak = 0
+  }, [lite])
   useFrame((state, dt) => {
     if (state.clock.elapsedTime < 8 || dt > 0.25 || document.hidden) return
     const s = w.current
@@ -130,8 +145,16 @@ function LiteWatch({ atFloor, onStruggle }: { atFloor: boolean; onStruggle: () =
     const fps = s.frames / s.time
     s.frames = 0
     s.time = 0
-    s.slow = fps < 22 && atFloor ? s.slow + 1 : 0
-    if (s.slow >= 5) onStruggle()
+    if (!lite) {
+      s.streak = fps < 22 && atFloor ? s.streak + 1 : 0
+      if (s.streak >= 5) setLite(true)
+    } else if (s.recoveries < 2) {
+      s.streak = fps > 48 ? s.streak + 1 : 0
+      if (s.streak >= 10) {
+        s.recoveries++
+        setLite(false)
+      }
+    }
   })
   return null
 }
