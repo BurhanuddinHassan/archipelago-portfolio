@@ -308,7 +308,7 @@ export function Waterfalls({ night }: { night: boolean }) {
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uDim: { value: 1 } }), [])
   useFrame((s) => {
     uniforms.uTime.value = s.clock.elapsedTime
-    uniforms.uDim.value = night ? 0.45 : 1
+    uniforms.uDim.value = night ? 0.3 : 1
   })
   return (
     <>
@@ -520,4 +520,60 @@ export function WindStreaks({ count = 12 }: { count?: number }) {
       />
     </mesh>
   )
+}
+
+/* ---------------- Butterflies ---------------- */
+
+const BUTTERFLY_COLOURS = ['#f29ac0', '#ffd75e', '#8fd8ec', '#F26B3A', '#ffffff']
+
+/** Butterflies fluttering around flower patches on the main islands. One instanced mesh; wings flap in the shader. */
+export function Butterflies({ placements }: { placements: Placement[] }) {
+  const spots = useMemo(() => {
+    const near = (p: Placement) => ISLANDS.some((i) => Math.hypot(p.x - i.position[0], p.z - i.position[2]) < i.radius)
+    return placements.filter((p) => p.kind === 'flowers' && near(p)).filter((_, k) => k % 6 === 0).slice(0, 40)
+  }, [placements])
+  const geo = useMemo(() => {
+    const v = [0, 0, 0.07, 0, 0, -0.07, -0.16, 0, -0.02, 0, 0, 0.07, 0.16, 0, -0.02, 0, 0, -0.07]
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.Float32BufferAttribute(v, 3))
+    g.computeVertexNormals()
+    return g
+  }, [])
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), [])
+  const material = useMemo(() => {
+    const m = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = uniforms.uTime
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nuniform float uTime;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\ntransformed.y += abs(position.x) * sin(uTime * 16.0 + instanceMatrix[3].x * 3.0 + instanceMatrix[3].z) * 0.9;')
+    }
+    return m
+  }, [uniforms])
+  const ref = useRef<THREE.InstancedMesh>(null)
+  const tmp = useMemo(() => ({ m: new THREE.Matrix4(), q: new THREE.Quaternion(), e: new THREE.Euler(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1) }), [])
+  useEffect(() => {
+    const mesh = ref.current
+    if (!mesh) return
+    const c = new THREE.Color()
+    spots.forEach((_, i) => mesh.setColorAt(i, c.set(BUTTERFLY_COLOURS[i % BUTTERFLY_COLOURS.length])))
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+  }, [spots])
+  useFrame((state) => {
+    const mesh = ref.current
+    if (!mesh) return
+    const t = state.clock.elapsedTime
+    uniforms.uTime.value = t
+    spots.forEach((p, i) => {
+      // a lazy figure-of-eight around the flower patch
+      const a = t * 0.5 + i * 1.7
+      tmp.p.set(p.x + Math.sin(a) * 0.9, p.y + 0.8 + Math.sin(t * 1.3 + i) * 0.25, p.z + Math.sin(a * 2) * 0.45)
+      tmp.e.set(0, Math.atan2(Math.cos(a) * 0.9, Math.cos(a * 2) * 0.9), 0)
+      tmp.m.compose(tmp.p, tmp.q.setFromEuler(tmp.e), tmp.s)
+      mesh.setMatrixAt(i, tmp.m)
+    })
+    mesh.instanceMatrix.needsUpdate = true
+  })
+  if (!spots.length) return null
+  return <instancedMesh ref={ref} args={[geo, material, spots.length]} frustumCulled={false} />
 }

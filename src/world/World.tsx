@@ -10,7 +10,7 @@ import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
 import { IslandLandmark } from './landmarks/Islands'
-import { Balloons, Birds, BlobShadows, Clouds, Fireflies, NightSky, Waterfalls, WindStreaks, buildBackdrop, shadowTexture } from './Ambient'
+import { Balloons, Birds, BlobShadows, Butterflies, Clouds, Fireflies, NightSky, Waterfalls, WindStreaks, buildBackdrop, shadowTexture } from './Ambient'
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 
@@ -36,23 +36,18 @@ export default function World() {
   // Start at a safe resolution and let the FPS monitor raise or lower it for this device.
   const [dpr, setDpr] = useState(mobile ? 1.25 : 1.5)
   const maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2)
-  // Lite mode: if the frame rate is still poor at the lowest resolution, drop the extras
-  // (rock shader detail, waterfalls, shadows, balloons, birds). Remembered for the next visit; ?lite forces it.
-  const [lite, setLite] = useState(() => {
+  // Lite mode drops the extras (rock shader detail, waterfalls, shadows, balloons, birds, wind, fireflies).
+  // It only switches on when the site is truly struggling: under 22 fps for 5 seconds in a row at the lowest
+  // resolution (see LiteWatch). It lasts for this visit only. ?lite forces it on, ?full keeps it off.
+  const query = useMemo(() => new URLSearchParams(window.location.search), [])
+  const [lite, setLite] = useState(() => query.has('lite'))
+  useEffect(() => {
     try {
-      return new URLSearchParams(window.location.search).has('lite') || localStorage.getItem('lite') === '1'
-    } catch {
-      return false
-    }
-  })
-  const goLite = () => {
-    setLite(true)
-    try {
-      localStorage.setItem('lite', '1')
+      localStorage.removeItem('lite') // an earlier build remembered lite mode too eagerly
     } catch {
       /* private mode */
     }
-  }
+  }, [])
   // Islands are generated once: body geometry per island + prop placements for the instancer.
   const islands = useMemo(
     () =>
@@ -82,18 +77,15 @@ export default function World() {
       camera={{ fov: mobile ? 50 : 38, near: 0.1, far: 420, position: [10, 7, 12] }}
       gl={{ antialias: !mobile, powerPreference: 'high-performance' }}
     >
+      {/* resolution steps down below 30 fps and back up above 50 fps; it never triggers lite mode by itself */}
       <PerformanceMonitor
+        bounds={() => [30, 50]}
         onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))}
-        onDecline={() => {
-          if (dpr <= 0.75) goLite()
-          setDpr((d) => Math.max(0.75, d - 0.25))
-        }}
-        flipflops={3}
-        onFallback={() => {
-          setDpr(0.75)
-          goLite()
-        }}
+        onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))}
+        flipflops={4}
+        onFallback={() => setDpr(1)}
       />
+      {!lite && !query.has('full') && <LiteWatch atFloor={dpr <= 0.75} onStruggle={() => setLite(true)} />}
       <SkyDome top={c.top} horizon={c.horizon} />
       <fog attach="fog" args={[c.horizon, 70, 240]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
@@ -110,6 +102,7 @@ export default function World() {
           <Birds flocks={mobile ? 2 : 4} />
           <WindStreaks count={mobile ? 7 : 12} />
           {theme === 'night' && <Fireflies perIsland={mobile ? 10 : 16} />}
+          <Butterflies placements={placements} />
         </>
       )}
       {theme === 'night' && <NightSky />}
@@ -123,6 +116,24 @@ export default function World() {
       <ViewOffset />
     </Canvas>
   )
+}
+
+/** Watches the real frame rate and reports only sustained, severe lag (ignores loading and background tabs). */
+function LiteWatch({ atFloor, onStruggle }: { atFloor: boolean; onStruggle: () => void }) {
+  const w = useRef({ frames: 0, time: 0, slow: 0 })
+  useFrame((state, dt) => {
+    if (state.clock.elapsedTime < 8 || dt > 0.25 || document.hidden) return
+    const s = w.current
+    s.frames++
+    s.time += dt
+    if (s.time < 1) return
+    const fps = s.frames / s.time
+    s.frames = 0
+    s.time = 0
+    s.slow = fps < 22 && atFloor ? s.slow + 1 : 0
+    if (s.slow >= 5) onStruggle()
+  })
+  return null
 }
 
 /**
@@ -421,7 +432,7 @@ function PilotRig({ night }: { night: boolean }) {
           <meshBasicMaterial color="#12300f" alphaMap={shadowTex} transparent opacity={0.38} depthWrite={false} polygonOffset polygonOffsetFactor={-3} />
         </mesh>
         {/* night fill light in front of the Pilot, so his face isn't lost against lit windows */}
-        {night && <pointLight position={[0, 3.2, 2.6]} color="#ffe2b8" intensity={3} distance={5.5} decay={2} />}
+        {night && <pointLight position={[0, 2.8, 2.4]} color="#ffe2b8" intensity={4.5} distance={5.5} decay={2} />}
         <ModelGuard fallback={<PilotPlaceholder />}>
           <Suspense fallback={<PilotPlaceholder />}>
             <PilotModel pose={pose} />

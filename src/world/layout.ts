@@ -82,6 +82,7 @@ export const HOME_PIECES = {
   benchR: nearStop('cinema', 1.7, 1.0),
   postbox: nearStop('contact', -1.7, 0.5),
   arcade: nearStop('home', 1.2, 2.2),
+  lanterns: [nearStop('home', -2.6, 0.4), nearStop('home', 2.6, 3.8), nearStop('cinema', -3.1, 1.9), nearStop('contact', -0.5, 2.6), nearStop('contact', -3.4, 0.2)],
 }
 
 /** Where the centrepiece of every other island stands: behind the Pilot and a little to the left, clear of the ship. */
@@ -130,6 +131,7 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       [...h.benchR, 1.0],
       [...h.postbox, 1.0],
       [...h.arcade, 1.0],
+      ...h.lanterns.map((l): [number, number, number] => [...l, 0.7]),
     ]
   }
   return [[...CENTREPIECE, 3.3]]

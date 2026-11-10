@@ -1,9 +1,10 @@
-import { Suspense, useMemo, useState } from 'react'
+import { Suspense, useMemo, useRef, useState } from 'react'
 import { Html, useTexture } from '@react-three/drei'
-import type { ThreeEvent } from '@react-three/fiber'
+import { useFrame, type ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FACE_YAW, HOME_PIECES, groundY, type IslandDef } from '../layout'
 import { profile } from '../../content'
+import { shadowTexture } from '../Ambient'
 import { C, blob, box, canvasTexture, cyl, disc, hex, merge, prism, sphere } from './kit'
 
 /**
@@ -105,6 +106,7 @@ export function Cottage({ def, night }: { def: IslandDef; night: boolean }) {
       <Piece body={body} />
       <GlowMesh geometry={glow} night={night} day="#cfe3ee" lit="#ffcf73" />
       {night && <pointLight position={[0, 1.8, 2.2]} color="#ffcf7a" intensity={6} distance={7} />}
+      <Smoke at={[1.0, 4.25, -0.6]} />
     </group>
   )
 }
@@ -335,6 +337,66 @@ export function Arcade({ def, interactive }: { def: IslandDef; interactive: bool
   )
 }
 
+/** Chimney smoke: a few soft puffs that rise, drift, grow and fade in a loop. */
+function Smoke({ at }: { at: V3 }) {
+  const group = useRef<THREE.Group>(null)
+  const N = 6
+  useFrame((state) => {
+    group.current?.children.forEach((m, i) => {
+      const f = (state.clock.elapsedTime * 0.16 + i / N) % 1
+      m.position.set(f * f * 0.9, f * 2.6, Math.sin(f * 5 + i) * 0.12)
+      m.scale.setScalar(0.16 + f * 0.42)
+      ;((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = Math.sin(f * Math.PI) * 0.55
+    })
+  })
+  return (
+    <group ref={group} position={at}>
+      {Array.from({ length: N }, (_, i) => (
+        <mesh key={i}>
+          <icosahedronGeometry args={[1, 1]} />
+          <meshBasicMaterial color="#f4efe6" transparent opacity={0} depthWrite={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+/* ---------------- Lantern posts ---------------- */
+
+function lantern() {
+  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
+  p.push(cyl(0.1, 0.13, 0.12, C.stoneDark, [0, 0.06, 0], undefined, 8))
+  p.push(cyl(0.04, 0.05, 2.0, C.woodDark, [0, 1.05, 0], undefined, 6))
+  p.push(box([0.5, 0.05, 0.05], C.woodDark, [0.2, 2.02, 0]))
+  p.push(box([0.02, 0.16, 0.02], C.ink, [0.4, 1.92, 0]))
+  p.push(box([0.24, 0.05, 0.24], C.metal, [0.4, 1.84, 0]))
+  p.push(box([0.2, 0.04, 0.2], C.metal, [0.4, 1.56, 0]))
+  g.push(box([0.16, 0.24, 0.16], C.white, [0.4, 1.7, 0]))
+  return { body: merge(p), glow: merge(g) }
+}
+
+/** Lantern posts along Home Isle's paths. At night they glow and throw a warm pool of light on the grass (no real lights). */
+function Lanterns({ def, night }: { def: IslandDef; night: boolean }) {
+  const { body, glow } = useMemo(lantern, [])
+  const pool = useMemo(shadowTexture, [])
+  return (
+    <>
+      {HOME_PIECES.lanterns.map(([x, z], i) => (
+        <group key={i} position={[x, groundY(def, x, z), z]} rotation={[0, FACE_YAW + i * 1.3, 0]}>
+          <Piece body={body} />
+          <GlowMesh geometry={glow} night={night} day="#e9e2d2" lit="#ffd27a" />
+          {night && (
+            <mesh position={[0.4, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+              <circleGeometry args={[2.3, 20]} />
+              <meshBasicMaterial color="#ffc266" alphaMap={pool} transparent opacity={0.3} depthWrite={false} blending={THREE.AdditiveBlending} polygonOffset polygonOffsetFactor={-3} />
+            </mesh>
+          )}
+        </group>
+      ))}
+    </>
+  )
+}
+
 export function HomeLandmarks({ def, night, interactive }: { def: IslandDef; night: boolean; interactive: boolean }) {
   return (
     <>
@@ -342,6 +404,7 @@ export function HomeLandmarks({ def, night, interactive }: { def: IslandDef; nig
       <Cinema def={def} night={night} />
       <PostBox def={def} />
       <Arcade def={def} interactive={interactive} />
+      <Lanterns def={def} night={night} />
     </>
   )
 }
