@@ -317,7 +317,9 @@ function PropInstances({ geometry, material, list, cast }: { geometry: THREE.Buf
     // a correct bounding sphere lets the renderer skip this whole batch when its island is off screen
     mesh.computeBoundingSphere()
   }, [list])
-  return <instancedMesh ref={ref} args={[geometry, material, list.length]} castShadow={cast} />
+  // The material is a prop, not a constructor argument: when it changes (graphics mode switch) the mesh is kept,
+  // so the instances keep their positions instead of all collapsing to the world origin.
+  return <instancedMesh ref={ref} args={[geometry, undefined, list.length]} material={material} castShadow={cast} />
 }
 useGLTF.preload(PROPS_URL, DRACO_PATH)
 
