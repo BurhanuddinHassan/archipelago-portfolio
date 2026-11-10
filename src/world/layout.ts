@@ -88,13 +88,12 @@ export const HOME_PIECES = {
 
 /**
  * Chrono Rebellion: the island is split by a glowing crack (the timeline split).
- * Left of it is 1944 (bunker, watchtower, a patrolling soldier), right of it is 2145 (Aiden's ship, holo-table).
+ * Left of it is 1944 (bunker, watchtower, a patrolling soldier), right of it is 2145 (Aiden's ship).
  */
 export const CHRONO = (() => {
   const n = (side: number, back: number) => nearStop('chrono-rebellion', side, back)
   return {
     tower: n(0.9, 8.6),
-    portal: n(0.15, 4.3),
     // runs from the tower past the Pilot's left, so he stands on the 2145 side with his ship
     crack: [[0.9, 7.3], [0.5, 6.4], [0.6, 5.5], [0.0, 4.7], [0.1, 3.8], [-0.6, 3.0], [-0.5, 2.2], [-1.1, 1.5], [-1.0, 0.7], [-1.5, 0.0], [-1.6, -0.9]].map(([a, b]) => n(a, b)),
     bunker: n(-3.3, 5.5),
@@ -104,7 +103,6 @@ export const CHRONO = (() => {
     wire: [n(-3.5, 0.1), n(-2.75, -0.4), n(-2.0, -0.9)],
     patrol: [n(-4.6, 3.2), n(-2.3, 1.9), n(-1.5, 3.6)],
     pad: n(5.6, 4.7),
-    holo: n(1.9, 3.3),
     pylons: [n(3.4, 6.4), n(7.2, 3.3)],
     pods: n(6.6, 1.9),
     // open ground in front of each era, so trees never hide the scene from the camera
@@ -166,8 +164,8 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
     const mid = (a: [number, number], b: [number, number]): [number, number] => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
     const path = c.patrol.flatMap((w, i) => [w, mid(w, c.patrol[(i + 1) % c.patrol.length])])
     return [
-      [...c.tower, 2.2], [...c.portal, 0.8], [...c.bunker, 2.2], [...c.sandbags, 1.3], [...c.watch, 1.0], [...c.crate, 0.8],
-      [...c.pad, 2.2], [...c.holo, 0.7], [...c.pods, 0.8],
+      [...c.tower, 2.2], [...c.bunker, 2.2], [...c.sandbags, 1.3], [...c.watch, 1.0], [...c.crate, 0.8],
+      [...c.pad, 2.2], [...c.pods, 0.8],
       ...[...c.wire, ...c.pylons].map((q): [number, number, number] => [...q, 0.6]),
       ...path.map((q): [number, number, number] => [...q, 0.9]),
       ...c.crack.map((q): [number, number, number] => [...q, 0.5]),

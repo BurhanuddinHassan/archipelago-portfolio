@@ -10,7 +10,7 @@ import { C, beam, blob, box, canvasTexture, cone, cyl, hex, merge, paint, sphere
  * A glowing crack (the timeline split) runs from the clock tower through the island.
  * Left of it is 1944: a bunker, a watchtower, a crate of stolen alien tech, and a soldier running the
  * same patrol / chase / attack / return state machine as the game's enemy AI.
- * Right of it is 2145: Aiden's ship on its landing pad and a holo-table showing the split.
+ * Right of it is 2145: Aiden's ship on its landing pad.
  */
 
 type V3 = [number, number, number]
@@ -202,56 +202,6 @@ function ship(accent: THREE.Color) {
   p.push(cyl(0.1, 0.1, 0.04, C.metal, [0, 0.02, 0.85], undefined, 8))
   g.push(box([0.05, 0.03, 0.5], CYAN, [0, Y - 0.33, 0.1]))
   return { body: merge(p), glow: merge(g) }
-}
-
-function holoTable(accent: THREE.Color) {
-  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
-  p.push(cyl(0.34, 0.42, 0.16, STEEL_DARK, [0, 0.08, 0], undefined, 8))
-  p.push(cyl(0.12, 0.16, 0.6, STEEL, [0, 0.46, 0], undefined, 8))
-  p.push(cyl(0.4, 0.3, 0.1, STEEL_DARK, [0, 0.8, 0], undefined, 8))
-  g.push(cyl(0.32, 0.32, 0.02, CYAN, [0, 0.86, 0], undefined, 8))
-  g.push(torus(0.36, 0.02, accent, [0, 0.82, 0], [Math.PI / 2, 0, 0], Math.PI * 2, 8))
-  return { body: merge(p), glow: merge(g) }
-}
-
-/** The hologram: one timeline that splits in 1944; the altered branch is marked. */
-function holoTexture() {
-  return canvasTexture(512, 300, (ctx) => {
-    ctx.clearRect(0, 0, 512, 300)
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = '#7de3ff'
-    ctx.lineWidth = 7
-    ctx.beginPath()
-    ctx.moveTo(30, 190)
-    ctx.lineTo(190, 190)
-    ctx.lineTo(480, 190)
-    ctx.stroke()
-    ctx.strokeStyle = '#ff6b6b'
-    ctx.setLineDash([16, 12])
-    ctx.beginPath()
-    ctx.moveTo(190, 190)
-    ctx.bezierCurveTo(260, 190, 280, 90, 480, 80)
-    ctx.stroke()
-    ctx.setLineDash([])
-    for (const [x, y, c] of [[30, 190, '#7de3ff'], [190, 190, '#ffffff'], [480, 190, '#7de3ff'], [480, 80, '#ff6b6b']] as const) {
-      ctx.fillStyle = c
-      ctx.beginPath()
-      ctx.arc(x, y, 12, 0, Math.PI * 2)
-      ctx.fill()
-    }
-    ctx.font = '600 30px "Inter", "Segoe UI", sans-serif'
-    ctx.fillStyle = '#ffffff'
-    ctx.textAlign = 'center'
-    ctx.fillText('1944', 190, 240)
-    ctx.fillStyle = '#7de3ff'
-    ctx.fillText('2145', 446, 240)
-    ctx.fillStyle = '#ff6b6b'
-    ctx.fillText('SPLIT', 380, 56)
-    ctx.fillStyle = '#7de3ff'
-    ctx.font = '600 24px "Inter", "Segoe UI", sans-serif'
-    ctx.textAlign = 'left'
-    ctx.fillText('TIMELINE', 24, 40)
-  })
 }
 
 function pylon(accent: THREE.Color) {
@@ -509,7 +459,6 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
     () => ({
       tower: clockTower(accent),
       face: clockFace(),
-      ring: torus(1.0, 0.09, accent, undefined, undefined, Math.PI * 2, 32),
       bunker: bunker(),
       sandbags: sandbags(),
       watch: watchtower(),
@@ -517,8 +466,6 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
       wire: wireFence(CHRONO.wire.map(([x, z]) => new THREE.Vector3(x, groundY(def, x, z), z))),
       pad: landingPad(accent),
       ship: ship(accent),
-      holo: holoTable(accent),
-      holoTex: holoTexture(),
       pylon: pylon(accent),
       pods: cargoPods(accent),
       scar: crackStrip(def, 0.42, 0.05),
@@ -531,8 +478,8 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
   )
   const centre = useMemo(() => new THREE.Vector3(...def.position), [def])
   const near = useRef(true)
-  const hour = useRef<THREE.Mesh>(null), minute = useRef<THREE.Mesh>(null), portal = useRef<THREE.Group>(null)
-  const core = useRef<THREE.MeshBasicMaterial>(null), curtain = useRef<THREE.MeshBasicMaterial>(null), holo = useRef<THREE.MeshBasicMaterial>(null)
+  const hour = useRef<THREE.Mesh>(null), minute = useRef<THREE.Mesh>(null)
+  const core = useRef<THREE.MeshBasicMaterial>(null), curtain = useRef<THREE.MeshBasicMaterial>(null)
   const shards = useRef<THREE.Group>(null), alien = useRef<THREE.Mesh>(null), beamRef = useRef<THREE.Group>(null)
   const shardSpots = useMemo(() => CHRONO.crack.filter((_, i) => i % 2 === 1).map(([x, z], i) => [x, groundY(def, x, z) + 0.7 + (i % 2) * 0.5, z] as V3), [def])
 
@@ -543,11 +490,9 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
     const t = state.clock.elapsedTime
     if (minute.current) minute.current.rotation.z += 1.2 * dt // the clock runs backwards
     if (hour.current) hour.current.rotation.z += 0.1 * dt
-    if (portal.current) portal.current.rotation.z -= 0.6 * dt
     const pulse = 0.5 + 0.5 * Math.sin(t * 2.2)
     if (core.current) core.current.color.setRGB(0.62 + pulse * 0.3, 0.5 + pulse * 0.35, 1)
     if (curtain.current) curtain.current.opacity = (night ? 0.5 : 0.34) + pulse * 0.16
-    if (holo.current) holo.current.opacity = 0.8 + Math.sin(t * 13) * 0.06
     if (alien.current) alien.current.scale.setScalar(1 + Math.sin(t * 3) * 0.06)
     if (beamRef.current) beamRef.current.rotation.y = Math.sin(t * 0.5) * 0.9
     shards.current?.children.forEach((m, i) => {
@@ -596,17 +541,6 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
           <meshBasicMaterial color="#2b2730" />
         </mesh>
       </At>
-      <At def={def} xz={CHRONO.portal} lift={1.9} scale={1.15}>
-        <group ref={portal}>
-          <mesh geometry={g.ring}>
-            <meshBasicMaterial vertexColors color={night ? '#ffffff' : '#d6ccf5'} toneMapped={false} />
-          </mesh>
-          <mesh>
-            <circleGeometry args={[0.93, 32]} />
-            <meshBasicMaterial color={def.accent} transparent opacity={0.26} side={THREE.DoubleSide} depthWrite={false} />
-          </mesh>
-        </group>
-      </At>
 
       {/* ---- 1944 ---- */}
       <At def={def} xz={CHRONO.bunker} scale={1.3} turn={0.12}>
@@ -644,14 +578,6 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
           <Body g={g.ship.body} />
           <Glow g={g.ship.glow} night={night} day="#a9dcee" />
         </group>
-      </At>
-      <At def={def} xz={CHRONO.holo} scale={1.25}>
-        <Body g={g.holo.body} />
-        <Glow g={g.holo.glow} night={night} day="#b9d9e6" />
-        <mesh position={[0, 1.85, 0]}>
-          <planeGeometry args={[2.3, 1.35]} />
-          <meshBasicMaterial ref={holo} map={g.holoTex} transparent opacity={0.85} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} />
-        </mesh>
       </At>
       {CHRONO.pylons.map((xz, i) => (
         <At key={i} def={def} xz={xz}>
