@@ -169,16 +169,21 @@ function islandBody({ R, seed, top, surface, segments = 96, topRings = 10, depth
       color: () => c.copy(col(k % 2 ? style.rockB : style.rockA)),
     })
   })
-  // underside: stepped strata tapering to a point
-  const LEVELS = 10
+  // underside: a full, chunky body with big spurs running down it, stepped ledges, and an off-centre tip
+  const LEVELS = 12
   const start = top - 2.2
+  const spurs = ringNoise(seed + 13, 3)
+  const leanA = jag() * Math.PI * 2, leanD = R * 0.2
+  const profile = (f: number) => Math.pow(1 - f, 0.6)
   for (let k = 1; k <= LEVELS; k++) {
     const f = k / LEVELS
-    const taper = Math.pow(1 - f, 0.9)
+    const ledge = k % 2 ? 1.05 : 0.95
     rings.push({
       pos: (t, s) => {
-        const r = outline(t) * (0.93 * taper + 0.03) * (1 + jagTable[(k + 8) * SEG + s] * (0.08 + f * 0.18))
-        return [Math.cos(t) * r, start - depth * f + 0.18 * strata(t * 2 + k), Math.sin(t) * r]
+        const r =
+          outline(t) * (0.93 * profile(f) * ledge + 0.02) * (1 + spurs(t + f * 0.9) * (0.08 + 0.4 * f)) * (1 + jagTable[(k + 8) * SEG + s] * (0.06 + f * 0.14))
+        const off = leanD * f * f
+        return [Math.cos(t) * r + Math.cos(leanA) * off, start - depth * f + 0.25 * strata(t * 2 + k), Math.sin(t) * r + Math.sin(leanA) * off]
       },
       color: (_t, _x, y) => {
         const band = k % 2 === 0 ? style.rockA : style.rockB
@@ -205,7 +210,7 @@ function islandBody({ R, seed, top, surface, segments = 96, topRings = 10, depth
   })
   // (ring 0 sits at the centre, so the top is closed) bottom tip
   const tipIdx = positions.length / 3
-  positions.push(0, start - depth * 1.12, 0)
+  positions.push(Math.cos(leanA) * leanD, start - depth * 1.1, Math.sin(leanA) * leanD)
   const tipC = col(style.rockDeep).multiplyScalar(0.8)
   colors.push(tipC.r, tipC.g, tipC.b)
   const last = (rings.length - 1) * SEG
@@ -216,7 +221,7 @@ function islandBody({ R, seed, top, surface, segments = 96, topRings = 10, depth
   g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
   g.setIndex(index)
   g.computeVertexNormals()
-  return { geometry: g, outline }
+  return { geometry: g, outline, start, depth }
 }
 
 /** A blobby sphere with gently displaced vertices, flat-coloured, smooth-shaded. */
@@ -253,6 +258,28 @@ function root(x: number, y: number, z: number, len: number, lean: number, headin
   return paint(g, color)
 }
 
+/** A rock spike hanging under an island (tip down), darker towards the tip. */
+function spike(x: number, yTop: number, z: number, radius: number, length: number, seed: number, style: IslandStyle) {
+  const g = new THREE.ConeGeometry(radius, length, 9, 4)
+  g.rotateX(Math.PI)
+  const p = g.attributes.position as THREE.BufferAttribute
+  const r = rng(seed)
+  const lean = (r() - 0.5) * 0.5, leanZ = (r() - 0.5) * 0.5
+  const arr = new Float32Array(p.count * 3)
+  const a = col(seed % 2 ? style.rockA : style.rockB), deep = col(style.rockDeep), c = new THREE.Color()
+  for (let i = 0; i < p.count; i++) {
+    const down = 0.5 - p.getY(i) / length // 0 at the base, 1 at the tip
+    const k = 1 + (r() - 0.5) * 0.3
+    p.setXYZ(i, p.getX(i) * k + lean * down * length * 0.4, p.getY(i), p.getZ(i) * k + leanZ * down * length * 0.4)
+    c.copy(a).lerp(deep, down * 0.8)
+    arr.set([c.r, c.g, c.b], i * 3)
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(arr, 3))
+  g.translate(x, yTop - length / 2, z)
+  g.computeVertexNormals()
+  return g
+}
+
 /** Strip attributes so every part merges cleanly (position, normal, color only, non-indexed). */
 function normalise(g: THREE.BufferGeometry) {
   const ng = g.index ? g.toNonIndexed() : g
@@ -276,13 +303,13 @@ const TREES: Record<Flora, PropKind[]> = {
   mixed: ['tree_a', 'pine', 'tree_c', 'birch', 'pine_b'],
 }
 
-export type IslandOpts = SurfaceOpts & { flora?: Flora; density?: number }
+export type IslandOpts = SurfaceOpts & { flora?: Flora; density?: number; segments?: number; treesOnly?: boolean }
 
 /** Build one island: merged body geometry (+ islets, roots, clinging boulders) and prop placements. */
 export function buildIsland(opts: IslandOpts, style: IslandStyle = DAY_STYLE) {
   const R = opts.radius
   const surface = islandSurface(opts)
-  const { geometry, outline } = islandBody({ R, seed: opts.seed, top: opts.top, surface }, style)
+  const { geometry, outline, start, depth } = islandBody({ R, seed: opts.seed, top: opts.top, surface, segments: opts.segments ?? 96, topRings: opts.segments ? 5 : 10 }, style)
   const parts: THREE.BufferGeometry[] = [geometry]
   const r = rng(opts.seed + 31)
   const density = opts.density ?? 1
@@ -300,6 +327,15 @@ export function buildIsland(opts: IslandOpts, style: IslandStyle = DAY_STYLE) {
     const b = blob(0.5 + r() * 0.7, col(i % 2 ? style.rockA : style.rockB), opts.seed + 500 + i)
     b.translate(Math.cos(t) * rr, opts.top - 2.6 - r() * R * 0.5, Math.sin(t) * rr)
     parts.push(b)
+  }
+
+  // --- rock spikes hanging from the underside
+  const nSpikes = 3 + Math.floor(r() * 3)
+  for (let i = 0; i < nSpikes; i++) {
+    const t = r() * Math.PI * 2, q = 0.3 + r() * 0.4
+    const f = 1 - Math.pow(q, 1 / 0.6) // how far down the body is at this distance from the centre
+    const len = depth * (0.25 + r() * 0.3)
+    parts.push(spike(Math.cos(t) * outline(t) * q, start - depth * f + len * 0.35, Math.sin(t) * outline(t) * q, R * (0.1 + r() * 0.08), len, opts.seed + 900 + i, style))
   }
 
   // --- a couple of tiny islets drifting alongside
@@ -362,9 +398,11 @@ export function buildIsland(opts: IslandOpts, style: IslandStyle = DAY_STYLE) {
   }
   scatter(['bush', 'bush_berries', 'bush'], Math.round(R * 0.8 * density), 0.6, 0.95, 0.8, [0.25, 0.92])
   scatter(['rock_moss', 'rock_moss_b', 'rock'], Math.round(R * 0.45 * density), 1.2, 2.4, 0.6, [0.3, 0.95])
-  scatter(['flowers', 'flowers', 'plant'], Math.round(R * 1.4 * density), 0.9, 1.4, 0.35, [0.1, 0.94])
-  scatter(['fern', 'plant'], Math.round(R * 1.0 * density), 0.8, 1.2, 0.45, [0.2, 0.94])
-  if (r() < 0.6) scatter(['stump', 'log'], 1, 1.0, 1.3, 1.0, [0.4, 0.8])
+  if (!opts.treesOnly) {
+    scatter(['flowers', 'flowers', 'plant'], Math.round(R * 2.4 * density), 0.9, 1.5, 0.3, [0.1, 0.95])
+    scatter(['fern', 'plant', 'plant'], Math.round(R * 2.0 * density), 0.8, 1.3, 0.35, [0.15, 0.95])
+  }
+  if (!opts.treesOnly && r() < 0.6) scatter(['stump', 'log'], 1, 1.0, 1.3, 1.0, [0.4, 0.8])
 
   return { geometry: body, placements, surface }
 }

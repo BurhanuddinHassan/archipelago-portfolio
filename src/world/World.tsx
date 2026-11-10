@@ -10,6 +10,8 @@ import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
 import { IslandLandmark } from './landmarks/Islands'
+import { Balloons, Birds, Clouds, buildBackdrop } from './Ambient'
+import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 
 const PALETTE = {
@@ -43,15 +45,19 @@ export default function World() {
       })),
     [mobile],
   )
+  const backdrop = useMemo(() => buildBackdrop(mobile), [mobile])
+  const islandMaterial = useMemo(makeIslandMaterial, [])
   const placements = useMemo<WorldPlacement[]>(
-    () =>
-      islands.flatMap(({ def, placements }) =>
+    () => [
+      ...islands.flatMap(({ def, placements }) =>
         placements
           // phones skip half the smallest undergrowth: many instances, little visual gain at that size
           .filter((p, k) => !mobile || !['flowers', 'plant', 'fern'].includes(p.kind) || k % 2 === 0)
           .map((p) => ({ ...p, x: p.x + def.position[0], y: p.y + def.position[1], z: p.z + def.position[2] })),
       ),
-    [islands, mobile],
+      ...backdrop.placements,
+    ],
+    [islands, backdrop, mobile],
   )
   return (
     <Canvas
@@ -70,14 +76,17 @@ export default function World() {
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
       <directionalLight position={[12, 20, 8]} intensity={c.sun} color={c.sunColor} />
       {islands.map(({ def, geometry }) => (
-        <Island key={def.id} def={def} geometry={geometry} night={theme === 'night'} labels={!mobile} />
+        <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} />
       ))}
+      <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
+      <Balloons night={theme === 'night'} />
+      <Birds flocks={mobile ? 2 : 4} />
       <ModelGuard fallback={null}>
         <Suspense fallback={null}>
           <Props placements={placements} />
         </Suspense>
       </ModelGuard>
-      <Clouds count={mobile ? 12 : 26} night={theme === 'night'} />
+      <Clouds count={mobile ? 26 : 56} night={theme === 'night'} />
       <PilotRig night={theme === 'night'} />
       <ViewOffset />
     </Canvas>
@@ -107,13 +116,11 @@ function ViewOffset() {
 
 /* ---------------- Islands ---------------- */
 
-function Island({ def, geometry, night, labels }: { def: IslandDef; geometry: THREE.BufferGeometry; night: boolean; labels: boolean }) {
+function Island({ def, geometry, material, night, labels }: { def: IslandDef; geometry: THREE.BufferGeometry; material: THREE.Material; night: boolean; labels: boolean }) {
   const desktop = labels
   return (
     <group position={def.position}>
-      <mesh geometry={geometry}>
-        <meshLambertMaterial vertexColors />
-      </mesh>
+      <mesh geometry={geometry} material={material} />
       {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} />}
       {labels && <IslandLabel def={def} />}
     </group>
@@ -211,47 +218,6 @@ function IslandLabel({ def }: { def: IslandDef }) {
     <Html position={[0, ISLAND_TOP + def.radius * 0.1 + 7, 0]} center zIndexRange={[10, 0]}>
       <div ref={el} className="island-label" style={{ borderColor: def.accent, visibility: 'hidden' }}>{def.name}</div>
     </Html>
-  )
-}
-
-/* ---------------- Clouds ---------------- */
-
-function Clouds({ count, night }: { count: number; night: boolean }) {
-  const S = WORLD_SCALE
-  const clouds = useMemo(() => {
-    let seed = 7
-    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
-    // most clouds form a soft sea below the islands; a few drift high and far away
-    return Array.from({ length: count }, (_, i) => {
-      const low = i % 4 !== 0
-      return {
-        pos: [(rnd() - 0.5) * 130 * S, low ? -40 + rnd() * 8 : 58 + rnd() * 14, (rnd() - 0.5) * 120 * S] as [number, number, number],
-        scale: low ? 6 + rnd() * 5 : 3.5 + rnd() * 3,
-        speed: 0.3 + rnd() * 0.4,
-      }
-    })
-  }, [count, S])
-  const group = useRef<THREE.Group>(null)
-  useFrame((_, dt) => {
-    group.current?.children.forEach((c, i) => {
-      c.position.x += clouds[i].speed * dt
-      if (c.position.x > 70 * S) c.position.x = -70 * S
-    })
-  })
-  const color = night ? '#3A4258' : '#F4F1EA'
-  return (
-    <group ref={group}>
-      {clouds.map((c, i) => (
-        <group key={i} position={c.pos} scale={[c.scale, c.scale * (c.pos[1] < 0 ? 0.55 : 1), c.scale]}>
-          {[[-1.3, -0.1, 0, 0.9], [-0.4, 0.25, 0.1, 1.25], [0.6, 0.2, -0.1, 1.1], [1.5, -0.1, 0.1, 0.8], [0.1, -0.2, 0.5, 0.9]].map(([x, y, z, s], j) => (
-            <mesh key={j} position={[x, y, z]} scale={[s, s * 0.8, s]}>
-              <icosahedronGeometry args={[1, 2]} />
-              <meshLambertMaterial color={color} emissive={color} emissiveIntensity={night ? 0.05 : 0.35} />
-            </mesh>
-          ))}
-        </group>
-      ))}
-    </group>
   )
 }
 
