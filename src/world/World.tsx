@@ -36,6 +36,23 @@ export default function World() {
   // Start at a safe resolution and let the FPS monitor raise or lower it for this device.
   const [dpr, setDpr] = useState(mobile ? 1.25 : 1.5)
   const maxDpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.75 : 2)
+  // Lite mode: if the frame rate is still poor at the lowest resolution, drop the extras
+  // (rock shader detail, waterfalls, shadows, balloons, birds). Remembered for the next visit; ?lite forces it.
+  const [lite, setLite] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).has('lite') || localStorage.getItem('lite') === '1'
+    } catch {
+      return false
+    }
+  })
+  const goLite = () => {
+    setLite(true)
+    try {
+      localStorage.setItem('lite', '1')
+    } catch {
+      /* private mode */
+    }
+  }
   // Islands are generated once: body geometry per island + prop placements for the instancer.
   const islands = useMemo(
     () =>
@@ -46,7 +63,7 @@ export default function World() {
     [mobile],
   )
   const backdrop = useMemo(() => buildBackdrop(mobile), [mobile])
-  const islandMaterial = useMemo(makeIslandMaterial, [])
+  const islandMaterial = useMemo(() => (lite ? new THREE.MeshLambertMaterial({ vertexColors: true }) : makeIslandMaterial()), [lite])
   const placements = useMemo<WorldPlacement[]>(
     () => [
       ...islands.flatMap(({ def, placements }) =>
@@ -67,9 +84,15 @@ export default function World() {
     >
       <PerformanceMonitor
         onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))}
-        onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))}
+        onDecline={() => {
+          if (dpr <= 0.75) goLite()
+          setDpr((d) => Math.max(0.75, d - 0.25))
+        }}
         flipflops={3}
-        onFallback={() => setDpr(0.75)}
+        onFallback={() => {
+          setDpr(0.75)
+          goLite()
+        }}
       />
       <SkyDome top={c.top} horizon={c.horizon} />
       <fog attach="fog" args={[c.horizon, 70, 240]} />
@@ -79,16 +102,20 @@ export default function World() {
         <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} />
       ))}
       <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
-      <BlobShadows placements={placements} night={theme === 'night'} />
-      <Waterfalls night={theme === 'night'} />
-      <Balloons night={theme === 'night'} />
-      <Birds flocks={mobile ? 2 : 4} />
+      {!lite && (
+        <>
+          <BlobShadows placements={placements} night={theme === 'night'} />
+          <Waterfalls night={theme === 'night'} />
+          <Balloons night={theme === 'night'} />
+          <Birds flocks={mobile ? 2 : 4} />
+        </>
+      )}
       <ModelGuard fallback={null}>
         <Suspense fallback={null}>
           <Props placements={placements} />
         </Suspense>
       </ModelGuard>
-      <Clouds count={mobile ? 26 : 56} night={theme === 'night'} />
+      <Clouds count={lite ? 16 : mobile ? 26 : 56} night={theme === 'night'} />
       <PilotRig night={theme === 'night'} />
       <ViewOffset />
     </Canvas>

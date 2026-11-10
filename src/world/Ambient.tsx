@@ -241,40 +241,59 @@ export function Birds({ flocks = 3 }: { flocks?: number }) {
 
 const FALL_LENGTH = 17
 
-/** Pond + stream on the grass (follows the ground) and the sheet of water curving off the rim. */
+/**
+ * Pond, stream and falling sheet as ONE mesh with one shader, so the water keeps the same colour and
+ * the same moving streaks from the pond, along the stream, over the rim and down.
+ * Per vertex: data = (across 0..1, distance along the flow, fall 0..1 down the sheet, edge 0 centre..1 bank).
+ */
 function waterGeometry(def: IslandDef, fall: NonNullable<ReturnType<typeof waterfallSpot>>) {
   const dir = new THREE.Vector2(Math.cos(fall.t), Math.sin(fall.t)), side = new THREE.Vector2(-dir.y, dir.x)
-  const pos: number[] = [], idx: number[] = []
-  // stream: a strip from the pond to the rim
-  const r0 = Math.hypot(...fall.pond), N = 8, W = 0.75
-  for (let i = 0; i <= N; i++) {
-    const r = r0 + ((fall.lip - r0) * i) / N
-    const cx = dir.x * r, cz = dir.y * r
-    const y = (i === N ? ISLAND_TOP - 0.02 : groundY(def, cx, cz)) + 0.07
-    pos.push(cx - side.x * W, y, cz - side.y * W, cx + side.x * W, y, cz + side.y * W)
-    if (i < N) idx.push(i * 2, i * 2 + 2, i * 2 + 1, i * 2 + 1, i * 2 + 2, i * 2 + 3)
+  const pos: number[] = [], data: number[] = [], idx: number[] = []
+  const W = 0.75, r0 = Math.hypot(...fall.pond) + 1.25, streamLen = fall.lip - r0 // the stream starts at the pond's edge
+  const rowAt = (cx: number, y: number, cz: number, half: number, along: number, f: number) => {
+    const base = pos.length / 3
+    for (const [k, across] of [[-1, 0], [0, 0.5], [1, 1]]) {
+      pos.push(cx + side.x * half * k, y, cz + side.y * half * k)
+      data.push(across, along, f, Math.abs(k))
+    }
+    return base
   }
-  // pond: a fan around the stream's start
+  const stitch = (a: number, b: number) => {
+    for (let k = 0; k < 2; k++) idx.push(a + k, b + k, a + k + 1, a + k + 1, b + k, b + k + 1)
+  }
+  // stream on the grass, from the pond to the rim
+  const N = 8
+  let prev = -1
+  for (let i = 0; i <= N; i++) {
+    const r = r0 + (streamLen * i) / N, cx = dir.x * r, cz = dir.y * r
+    const y = (i === N ? ISLAND_TOP - 0.02 : groundY(def, cx, cz)) + 0.07
+    const row = rowAt(cx, y, cz, W, (streamLen * i) / N, 0)
+    if (prev >= 0) stitch(prev, row)
+    prev = row
+  }
+  // the sheet: bends outwards over the rim, then drops and widens
+  const M = 28
+  for (let j = 1; j <= M; j++) {
+    const v = j / M, out = fall.lip + 0.9 * (1 - Math.exp(-v * 7))
+    const row = rowAt(dir.x * out, ISLAND_TOP + 0.05 - FALL_LENGTH * Math.pow(v, 1.15), dir.y * out, W * (1 + v * 0.5), streamLen + FALL_LENGTH * v, v)
+    stitch(prev, row)
+    prev = row
+  }
+  // pond: a fan around the start of the stream
   const c = pos.length / 3, py = groundY(def, fall.pond[0], fall.pond[1]) + 0.07
   pos.push(fall.pond[0], py, fall.pond[1])
-  for (let k = 0; k <= 18; k++) {
-    const a = (k / 18) * Math.PI * 2
-    pos.push(fall.pond[0] + Math.cos(a) * 1.5, py, fall.pond[1] + Math.sin(a) * 1.3)
-    if (k < 18) idx.push(c, c + 2 + k, c + 1 + k)
+  data.push(0.5, 0, 0, 0)
+  for (let k = 0; k <= 22; k++) {
+    const a = (k / 22) * Math.PI * 2, wob = 1 + Math.sin(a * 3 + def.radius) * 0.12
+    pos.push(fall.pond[0] + Math.cos(a) * 1.6 * wob, py, fall.pond[1] + Math.sin(a) * 1.35 * wob)
+    data.push(0.5 + Math.cos(a) * 0.5, Math.sin(a) * 1.3, 0, 1)
+    if (k < 22) idx.push(c, c + 2 + k, c + 1 + k)
   }
-  const flat = new THREE.BufferGeometry()
-  flat.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  flat.setIndex(idx)
-  flat.computeVertexNormals()
-  // falling sheet: a plane bent outwards over the rim, then straight down
-  const sheet = new THREE.PlaneGeometry(W * 2, FALL_LENGTH, 4, 28)
-  const p = sheet.attributes.position as THREE.BufferAttribute
-  for (let i = 0; i < p.count; i++) {
-    const v = 0.5 - p.getY(i) / FALL_LENGTH // 0 at the rim, 1 at the bottom
-    const out = fall.lip + 0.9 * (1 - Math.exp(-v * 7)), across = p.getX(i) * (1 + v * 0.5)
-    p.setXYZ(i, dir.x * out + side.x * across, ISLAND_TOP + 0.05 - FALL_LENGTH * v * v ** 0.15, dir.y * out + side.y * across)
-  }
-  return { flat, sheet }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
+  g.setAttribute('data', new THREE.Float32BufferAttribute(data, 4))
+  g.setIndex(idx)
+  return g
 }
 
 export function Waterfalls({ night }: { night: boolean }) {
@@ -282,7 +301,7 @@ export function Waterfalls({ night }: { night: boolean }) {
     () =>
       ISLANDS.flatMap((def) => {
         const fall = waterfallSpot(def)
-        return fall ? [{ def, ...waterGeometry(def, fall) }] : []
+        return fall ? [{ def, geometry: waterGeometry(def, fall) }] : []
       }),
     [],
   )
@@ -293,34 +312,34 @@ export function Waterfalls({ night }: { night: boolean }) {
   })
   return (
     <>
-      {falls.map(({ def, flat, sheet }) => (
-        <group key={def.id} position={def.position}>
-          <mesh geometry={flat}>
-            <meshBasicMaterial color={night ? '#35627c' : '#8fd8ec'} side={THREE.DoubleSide} polygonOffset polygonOffsetFactor={-2} />
-          </mesh>
-          <mesh geometry={sheet}>
-            <shaderMaterial
-              transparent
-              depthWrite={false}
-              side={THREE.DoubleSide}
-              uniforms={uniforms}
-              vertexShader={'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'}
-              fragmentShader={[
-                'uniform float uTime; uniform float uDim; varying vec2 vUv;',
-                'void main() {',
-                '  float v = 1.0 - vUv.y;', // 0 at the rim, 1 at the bottom
-                '  float streak = sin(vUv.x * 26.0 + sin(v * 9.0 - uTime * 2.0) * 1.5) * 0.5 + 0.5;',
-                '  float flow = sin(v * 30.0 - uTime * 7.0 + vUv.x * 5.0) * 0.5 + 0.5;',
-                '  vec3 col = mix(vec3(0.56, 0.85, 0.93), vec3(1.0), streak * 0.6 + flow * 0.25) * uDim;',
-                '  float edge = smoothstep(0.0, 0.18, vUv.x) * smoothstep(1.0, 0.82, vUv.x);',
-                '  float alpha = edge * (0.55 + streak * 0.35) * (1.0 - smoothstep(0.35, 1.0, v));',
-                '  gl_FragColor = vec4(col, alpha);',
-                '  #include <colorspace_fragment>',
-                '}',
-              ].join('\n')}
-            />
-          </mesh>
-        </group>
+      {falls.map(({ def, geometry }) => (
+        <mesh key={def.id} geometry={geometry} position={def.position} renderOrder={2}>
+          <shaderMaterial
+            transparent
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            polygonOffset
+            polygonOffsetFactor={-2}
+            uniforms={uniforms}
+            vertexShader={'attribute vec4 data; varying vec4 vData; void main(){ vData = data; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }'}
+            fragmentShader={[
+              'uniform float uTime; uniform float uDim; varying vec4 vData;',
+              'void main() {',
+              '  float across = vData.x, along = vData.y, fall = vData.z, edge = vData.w;',
+              '  float streak = sin(across * 24.0 + sin(along * 0.7 - uTime * 1.6) * 1.5) * 0.5 + 0.5;',
+              '  float flow = sin(along * 2.2 - uTime * 5.0 + across * 5.0) * 0.5 + 0.5;',
+              '  float drop = smoothstep(0.0, 0.22, fall);', // 0 on the grass, 1 once the water is falling
+              '  float white = (streak * 0.6 + flow * 0.25) * mix(0.22, 1.0, drop);',
+              '  vec3 col = mix(vec3(0.45, 0.78, 0.9), vec3(1.0), white);',
+              '  col = mix(col, vec3(0.93, 0.98, 1.0), smoothstep(0.7, 1.0, edge) * 0.65 * (1.0 - drop));', // foam along the banks
+              '  float sheet = (1.0 - smoothstep(0.62, 1.0, edge)) * (0.6 + streak * 0.35);',
+              '  float alpha = mix(0.92, sheet, drop) * (1.0 - smoothstep(0.4, 1.0, fall));',
+              '  gl_FragColor = vec4(col * uDim, alpha);',
+              '  #include <colorspace_fragment>',
+              '}',
+            ].join('\n')}
+          />
+        </mesh>
       ))}
     </>
   )
