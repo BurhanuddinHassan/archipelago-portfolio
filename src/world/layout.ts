@@ -19,10 +19,10 @@ const v = (x: number, y: number, z: number): [number, number, number] => [x * S,
 export const ISLANDS: IslandDef[] = [
   { id: 'home', name: 'Home Isle', position: v(0, 0, 0), radius: 7 * S, accent: '#F26B3A', flora: 'leafy' },
   { id: 'behind-the-smile', name: 'Behind the Smile', position: v(-20, 3, -18), radius: 4.8 * S, accent: '#C94F6D', flora: 'mixed' },
-  { id: 'chrono-rebellion', name: 'Chrono Rebellion', position: v(2, 5, -32), radius: 5 * S, accent: '#7B61C9', flora: 'pine' },
+  { id: 'chrono-rebellion', name: 'Chrono Rebellion', position: v(2, 5, -32), radius: 6.6 * S, accent: '#7B61C9', flora: 'pine' },
   { id: 'sunken-greed', name: 'Sunken Greed', position: v(24, -1, -20), radius: 4.8 * S, accent: '#2F8F9D', flora: 'leafy' },
   { id: 'paper-plane-dash', name: 'Paper Plane Dash', position: v(32, 4, 2), radius: 4.8 * S, accent: '#F2B33D', flora: 'mixed' },
-  { id: 'merge-defence', name: 'Merge Defence', position: v(20, 1, 22), radius: 4.8 * S, accent: '#5DA05A', flora: 'leafy' },
+  { id: 'merge-defence', name: 'Merge Defence', position: v(20, 1, 22), radius: 6.4 * S, accent: '#5DA05A', flora: 'leafy' },
   { id: 'harbor', name: 'The Harbor', position: v(-4, -1.5, 18), radius: 4.4 * S, accent: '#3E6E8E', flora: 'leafy' },
   { id: 'workshop', name: 'Workshop Isle', position: v(-24, 2, 10), radius: 4.4 * S, accent: '#B07A45', flora: 'pine' },
   { id: 'journey', name: 'Journey Isle', position: v(-30, 0, -6), radius: 4.8 * S, accent: '#8C8C3A', flora: 'mixed' },
@@ -40,10 +40,10 @@ export const STOPS: StopDef[] = [
   { id: 'home', label: 'Home', island: 'home', offset: [1.5 * S, 2 * S] },
   { id: 'behind-the-smile', label: 'Behind the Smile', island: 'behind-the-smile', offset: [0, 1.2 * S] },
   // stands nearer the front rim than on other islands: the diorama behind him needs the depth
-  { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [0.86 * S, 2.38 * S] },
+  { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [1.91 * S, 2.6 * S] },
   { id: 'sunken-greed', label: 'Sunken Greed', island: 'sunken-greed', offset: [0, 1.2 * S] },
   { id: 'paper-plane-dash', label: 'Paper Plane Dash', island: 'paper-plane-dash', offset: [0, 1.2 * S] },
-  { id: 'merge-defence', label: 'Merge Defence', island: 'merge-defence', offset: [0, 1.2 * S] },
+  { id: 'merge-defence', label: 'Merge Defence', island: 'merge-defence', offset: [1.8 * S, 2.46 * S] },
   { id: 'harbor', label: 'More work', island: 'harbor', offset: [0, 1.2 * S] },
   { id: 'workshop', label: 'Skills', island: 'workshop', offset: [0, 1.2 * S] },
   { id: 'journey', label: 'Journey', island: 'journey', offset: [0, 1.2 * S] },
@@ -93,20 +93,37 @@ export const HOME_PIECES = {
 export const CHRONO = (() => {
   const n = (side: number, back: number) => nearStop('chrono-rebellion', side, back)
   return {
-    tower: n(0.9, 8.6),
+    tower: n(1.2, 12.0),
     // runs from the tower past the Pilot's left, so he stands on the 2145 side with his ship
-    crack: [[0.9, 7.3], [0.5, 6.4], [0.6, 5.5], [0.0, 4.7], [0.1, 3.8], [-0.6, 3.0], [-0.5, 2.2], [-1.1, 1.5], [-1.0, 0.7], [-1.5, 0.0], [-1.6, -0.9]].map(([a, b]) => n(a, b)),
-    bunker: n(-3.3, 5.5),
-    sandbags: n(-3.3, 4.05),
-    watch: n(-1.5, 7.6),
-    crate: n(-1.5, 5.3),
-    wire: [n(-3.5, 0.1), n(-2.75, -0.4), n(-2.0, -0.9)],
-    patrol: [n(-4.6, 3.2), n(-2.3, 1.9), n(-1.5, 3.6)],
-    pad: n(5.6, 4.7),
-    pylons: [n(3.4, 6.4), n(7.2, 3.3)],
-    pods: n(6.6, 1.9),
+    crack: [[1.2, 10.6], [0.7, 9.4], [0.9, 8.2], [0.2, 7.0], [0.3, 5.8], [-0.5, 4.6], [-0.4, 3.4], [-1.1, 2.3], [-1.0, 1.2], [-1.7, 0.2], [-1.9, -1.1]].map(([a, b]) => n(a, b)),
+    bunker: n(-5.2, 7.6),
+    sandbags: n(-5.2, 5.9),
+    watch: n(-2.6, 10.6),
+    crate: n(-2.4, 7.2),
+    wire: [n(-5.6, 0.9), n(-4.7, 0.3), n(-3.8, -0.3)],
+    patrol: [n(-7.0, 4.4), n(-2.6, 2.0), n(-2.2, 5.0)],
+    pad: n(6.2, 6.8),
+    pylons: [n(3.9, 8.8), n(8.2, 4.2)],
+    pods: n(7.0, 2.0),
     // open ground in front of each era, so trees never hide the scene from the camera
-    views: [n(-3.4, -0.9), n(-1.6, -1.8), n(6.2, -0.4)],
+    views: [n(-4.5, -1.0), n(-2.0, -2.2), n(6.5, -0.5)],
+  }
+})()
+
+/**
+ * Merge Defence: the game board. Monsters walk the lane from their cave to the castle;
+ * cannons of merge level 1 to 5 stand on the board and fire at them; three shrines are the power-ups.
+ */
+export const MERGE = (() => {
+  const n = (side: number, back: number) => nearStop('merge-defence', side, back)
+  return {
+    castle: n(4.9, 9.2),
+    cave: n(-6.3, 7.7),
+    lane: [[-5.4, 7.1], [-3.9, 5.9], [-2.1, 5.6], [-0.3, 6.2], [1.2, 7.1], [2.6, 7.9], [3.7, 8.5]].map(([a, b]) => n(a, b)),
+    board: n(-2.9, 3.3),
+    mergePad: n(-6.5, 1.2),
+    shrines: [n(5.4, 3.7), n(6.7, 5.0), n(7.7, 3.5)],
+    views: [n(-4.0, -0.8), n(-1.8, -2.0), n(6.4, 0.2)],
   }
 })()
 
@@ -170,6 +187,15 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       ...path.map((q): [number, number, number] => [...q, 0.9]),
       ...c.crack.map((q): [number, number, number] => [...q, 0.5]),
       ...c.views.map((q): [number, number, number] => [...q, 2.0]),
+    ]
+  }
+  if (def.id === 'merge-defence') {
+    const m = MERGE
+    return [
+      [...m.castle, 3.0], [...m.cave, 2.2], [...m.board, 3.4], [...m.mergePad, 1.5],
+      ...m.shrines.map((q): [number, number, number] => [...q, 0.8]),
+      ...m.lane.map((q): [number, number, number] => [...q, 0.9]),
+      ...m.views.map((q): [number, number, number] => [...q, 2.0]),
     ]
   }
   return [[...CENTREPIECE, 3.3]]

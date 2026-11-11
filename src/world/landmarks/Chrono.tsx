@@ -21,14 +21,14 @@ const SAND = hex('#bfae82'), STEEL = hex('#565c78'), STEEL_DARK = hex('#3c4058')
 const CYAN = hex('#7de3ff'), ALIEN = hex('#7dffb0'), SKIN = hex('#e8b88f')
 
 /** Squashed sphere. */
-function ell(rx: number, ry: number, rz: number, color: THREE.Color, at: V3, seg = 12) {
+export function ell(rx: number, ry: number, rz: number, color: THREE.Color, at: V3, seg = 12) {
   const g = sphere(1, color, [0, 0, 0], seg)
   g.scale(rx, ry, rz)
   g.translate(...at)
   return g
 }
 
-function Body({ g }: { g: THREE.BufferGeometry }) {
+export function Body({ g }: { g: THREE.BufferGeometry }) {
   return (
     <mesh geometry={g} castShadow>
       <meshLambertMaterial vertexColors />
@@ -36,7 +36,7 @@ function Body({ g }: { g: THREE.BufferGeometry }) {
   )
 }
 
-function Glow({ g, night, day = '#d8d0c4' }: { g: THREE.BufferGeometry; night: boolean; day?: string }) {
+export function Glow({ g, night, day = '#d8d0c4' }: { g: THREE.BufferGeometry; night: boolean; day?: string }) {
   return (
     <mesh geometry={g}>
       <meshBasicMaterial vertexColors color={night ? '#ffffff' : day} toneMapped={false} />
@@ -45,7 +45,7 @@ function Glow({ g, night, day = '#d8d0c4' }: { g: THREE.BufferGeometry; night: b
 }
 
 /** Puts children on the ground at an island-local spot, facing the camera (+Z towards the viewer, +X screen-right). */
-function At({ def, xz, turn = 0, scale = 1, lift = 0, children }: { def: IslandDef; xz: XZ; turn?: number; scale?: number; lift?: number; children: ReactNode }) {
+export function At({ def, xz, turn = 0, scale = 1, lift = 0, children }: { def: IslandDef; xz: XZ; turn?: number; scale?: number; lift?: number; children: ReactNode }) {
   return (
     <group position={[xz[0], groundY(def, xz[0], xz[1]) + lift, xz[1]]} rotation={[0, FACE_YAW + turn, 0]} scale={scale}>
       {children}
@@ -276,7 +276,7 @@ function fadeTexture() {
 type Mode = 'patrol' | 'alert' | 'chase' | 'attack' | 'return'
 const MODE_COLOUR: Record<Mode, string> = { patrol: '#8fe08a', alert: '#ffd75e', chase: '#ff7a5c', attack: '#ff4d4d', return: '#9fc4ff' }
 
-const SIGHT_RANGE = 3.3
+const SIGHT_RANGE = 4.0
 const SIGHT_HALF_ANGLE = 0.56 // ~32 degrees either side
 const WALK = 1.0, RUN = 2.3
 
@@ -472,6 +472,7 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
       core: crackStrip(def, 0.17, 0.07),
       curtain: crackCurtain(def),
       fade: fadeTexture(),
+      beam: new THREE.ConeGeometry(1.5, 6.5, 16, 1, true).translate(0, -3.25, 0), // apex at the origin, opening downwards
       shard: paint(new THREE.OctahedronGeometry(0.14, 0), hex('#5b4a86')),
     }),
     [def, accent],
@@ -553,10 +554,10 @@ export function ChronoRebellion({ def, night, simple }: { def: IslandDef; night:
         <Body g={g.watch.body} />
         <Glow g={g.watch.glow} night={night} day="#efe2b0" />
         {night && (
-          <group ref={beamRef} position={[0.3, 3.4, 0.55]}>
-            <mesh position={[0, -1.3, 2.2]} rotation={[-Math.PI / 2 - 0.55, 0, 0]}>
-              <coneGeometry args={[0.9, 5, 14, 1, true]} />
-              <meshBasicMaterial color="#fff2c4" transparent opacity={0.07} depthWrite={false} side={THREE.DoubleSide} />
+          // a cone of light that starts at the lamp and sweeps the ground in front of the tower
+          <group ref={beamRef} position={[0.3, 3.4, 0.62]}>
+            <mesh geometry={g.beam} rotation={[-1.05, 0, 0]}>
+              <meshBasicMaterial color="#fff2c4" transparent opacity={0.13} depthWrite={false} side={THREE.DoubleSide} />
             </mesh>
           </group>
         )}

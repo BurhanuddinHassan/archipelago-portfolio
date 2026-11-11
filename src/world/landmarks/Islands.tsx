@@ -4,6 +4,7 @@ import * as THREE from 'three'
 import { CENTREPIECE, FACE_YAW, groundY, type IslandDef } from '../layout'
 import { C, beam, blob, box, canvasTexture, cone, cyl, gear, hex, merge, paint, sphere, torus } from './kit'
 import { ChronoRebellion } from './Chrono'
+import { MergeDefence } from './Merge'
 
 /**
  * One small diorama per island, each about what the project (or section) is:
@@ -217,62 +218,6 @@ function PaperPlaneDash({ def, night }: { def: IslandDef; night: boolean }) {
   )
 }
 
-/* ---------------- Merge Defence: two towers of different merge tiers, slimes on the way ---------------- */
-
-function castle(accent: THREE.Color): Parts {
-  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
-  const stone = hex('#d8ccb8'), stoneDark = hex('#b9ab95')
-  const crown = (r: number, y: number, x: number, n: number) => {
-    for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2
-      p.push(box([0.2, 0.22, 0.2], stoneDark, [x + Math.cos(a) * r, y, Math.sin(a) * r]))
-    }
-  }
-  // tier 1 tower (small) and tier 2 tower (big), joined by a wall with a gate
-  p.push(cyl(0.48, 0.55, 1.5, stone, [-1.25, 0.75, 0], undefined, 12))
-  crown(0.42, 1.6, -1.25, 6)
-  p.push(cyl(0.75, 0.85, 2.7, stone, [1.2, 1.35, 0], undefined, 14))
-  p.push(cone(0.95, 1.1, accent, [1.2, 3.25, 0], undefined, 12))
-  p.push(box([1.6, 1.1, 0.4], stoneDark, [0, 0.55, 0]))
-  for (let i = 0; i < 4; i++) p.push(box([0.22, 0.22, 0.42], stone, [-0.6 + i * 0.4, 1.2, 0]))
-  p.push(box([0.6, 0.75, 0.42], C.woodDark, [0, 0.38, 0.02]))
-  for (const [x, y] of [[-1.25, 2.3], [1.2, 4.3]]) {
-    p.push(cyl(0.025, 0.025, 0.9, C.woodDark, [x, y - 0.4, 0]))
-    p.push(box([0.02, 0.28, 0.42], accent, [x, y - 0.05, 0.22]))
-  }
-  // tier stars on the towers
-  g.push(sphere(0.1, C.yellow, [-1.25, 1.0, 0.5], 8))
-  for (const y of [1.8, 2.2]) g.push(sphere(0.1, C.yellow, [1.2, y, 0.8], 8))
-  // two little defenders about to merge, and slimes coming up the path
-  for (const x of [-0.45, 0.45]) {
-    p.push(blob(0.22, hex('#5d8fd6'), [x, 0.22, 1.2], 0.9, x > 0 ? 3 : 5))
-    p.push(sphere(0.12, hex('#f1c9a5'), [x, 0.55, 1.2], 10))
-  }
-  // (kept left of the path: the Pilot stands front-right of the castle)
-  ;[[-1.5, 1.7], [-2.0, 2.2], [-1.7, 2.8]].forEach(([x, z], i) => p.push(blob(0.2 + i * 0.03, hex('#9b6fd0'), [x, 0.16, z], 0.6, i + 9)))
-  return { body: merge(p), glow: merge(g) }
-}
-
-function MergeDefence({ def, night }: { def: IslandDef; night: boolean }) {
-  const parts = useMemo(() => castle(hex(def.accent)), [def.accent])
-  const spark = useRef<THREE.Mesh>(null)
-  useFrame((s, dt) => {
-    if (!spark.current) return
-    spark.current.rotation.y += dt * 2
-    spark.current.scale.setScalar(1 + Math.sin(s.clock.elapsedTime * 4) * 0.2)
-  })
-  return (
-    <Spot def={def}>
-      <Body g={parts.body} />
-      <Glow g={parts.glow} night={night} day="#f0dc9a" />
-      <mesh ref={spark} position={[0, 0.75, 1.2]}>
-        <octahedronGeometry args={[0.16, 0]} />
-        <meshBasicMaterial color="#ffd75e" toneMapped={false} />
-      </mesh>
-    </Spot>
-  )
-}
-
 /* ---------------- The Harbor: a lighthouse and a pier with a notice board ---------------- */
 
 function harbor(): Parts {
@@ -452,7 +397,7 @@ export function IslandLandmark({ def, night, simple }: { def: IslandDef; night: 
     case 'paper-plane-dash':
       return <PaperPlaneDash def={def} night={night} />
     case 'merge-defence':
-      return <MergeDefence def={def} night={night} />
+      return <MergeDefence def={def} night={night} simple={simple} />
     case 'harbor':
       return <Harbor def={def} night={night} />
     case 'workshop':
