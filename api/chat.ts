@@ -1,7 +1,7 @@
 /**
  * Echo, the portfolio chatbot: POST /api/chat  { question: string, history?: {role, content}[] }
  * 1. Retrieve the most relevant portfolio passages (BM25, see _lib/retrieve.ts).
- * 2. Ask Gemini 2.5 Flash Lite to answer ONLY from them, citing [n]. Uses Google's Gemini API when GEMINI_API_KEY
+ * 2. Ask Gemini Flash Lite to answer ONLY from them, citing [n]. Uses Google's Gemini API when GEMINI_API_KEY
  *    is set (free tier, no card), otherwise Vercel AI Gateway (AI_GATEWAY_API_KEY or the deployment's OIDC token).
  * 3. Return { answer, sources } where sources are the passages it cited, each linking to its tour stop.
  * If the model can't be reached, answer with the best matching passage instead of failing.
@@ -11,7 +11,7 @@ import { retrieve, type Passage } from './_lib/retrieve.js'
 // both providers speak the OpenAI chat-completions format, so only the URL, key and model name differ
 function provider(req: Request) {
   const gemini = process.env.GEMINI_API_KEY
-  if (gemini) return { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', key: gemini, model: 'gemini-2.5-flash-lite', name: 'gemini' }
+  if (gemini) return { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', key: gemini, model: process.env.GEMINI_MODEL ?? 'gemini-3.5-flash-lite', name: 'gemini' }
   const key = process.env.AI_GATEWAY_API_KEY ?? req.headers.get('x-vercel-oidc-token') ?? process.env.VERCEL_OIDC_TOKEN
   if (key) return { url: 'https://ai-gateway.vercel.sh/v1/chat/completions', key, model: 'google/gemini-2.5-flash-lite', name: 'gateway' }
   return null
@@ -93,17 +93,24 @@ async function answer(req: Request, body: { question?: unknown; history?: unknow
   const llm = provider(req)
   if (!llm) return json(fallback(passages))
   try {
-    const res = await fetch(llm.url, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${llm.key}`, 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: llm.model,
-        temperature: 0.2,
-        max_tokens: 350,
-        messages: [{ role: 'system', content: `${SYSTEM}\n\nPortfolio passages:\n${context}` }, ...history, { role: 'user', content: question }],
-      }),
-      signal: AbortSignal.timeout(15_000),
-    })
+    const call = (model: string) =>
+      fetch(llm.url, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${llm.key}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          max_tokens: 350,
+          messages: [{ role: 'system', content: `${SYSTEM}\n\nPortfolio passages:\n${context}` }, ...history, { role: 'user', content: question }],
+        }),
+        signal: AbortSignal.timeout(15_000),
+      })
+    let res = await call(llm.model)
+    // a pinned Gemini model can be retired; fall back to Google's always-current alias
+    if (res.status === 404 && llm.name === 'gemini') {
+      console.error('gemini 404 for', llm.model, '- retrying with gemini-flash-lite-latest')
+      res = await call('gemini-flash-lite-latest')
+    }
     if (!res.ok) {
       console.error(llm.name, res.status, (await res.text()).slice(0, 300))
       return json(fallback(passages))
