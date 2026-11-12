@@ -5,6 +5,8 @@ import { CENTREPIECE, FACE_YAW, groundY, type IslandDef } from '../layout'
 import { C, beam, blob, box, canvasTexture, cone, cyl, gear, hex, merge, paint, sphere, torus } from './kit'
 import { ChronoRebellion } from './Chrono'
 import { MergeDefence } from './Merge'
+import { BehindTheSmile } from './Smile'
+import { SunkenGreed } from './Sunken'
 
 /**
  * One small diorama per island, each about what the project (or section) is:
@@ -42,112 +44,6 @@ function Spot({ def, children, turn = 0, scale = 1.4 }: { def: IslandDef; childr
 
 const spin = (ref: React.RefObject<THREE.Object3D | null>, axis: 'x' | 'y' | 'z', speed: number, dt: number) => {
   if (ref.current) ref.current.rotation[axis] += speed * dt
-}
-
-/* ---------------- Behind the Smile: a little stage and a smiling mask ---------------- */
-
-function stage(accent: THREE.Color): Parts {
-  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
-  const dark = accent.clone().multiplyScalar(0.72)
-  p.push(box([3.3, 0.38, 2.1], C.wood, [0, 0.19, 0]))
-  p.push(box([3.4, 0.08, 0.08], accent, [0, 0.36, 1.06]))
-  p.push(box([3.0, 2.7, 0.06], hex('#3a2a40'), [0, 1.7, -0.9]))
-  for (const x of [-1.55, 1.55]) p.push(box([0.18, 3.0, 0.18], C.woodDark, [x, 1.85, -0.72]))
-  p.push(box([3.4, 0.42, 0.16], accent, [0, 3.18, -0.7]))
-  for (const side of [-1, 1])
-    for (let i = 0; i < 3; i++) p.push(cyl(0.14, 0.17, 2.7, i % 2 ? dark : accent, [side * (1.32 - i * 0.2), 1.73, -0.64 + i * 0.02], undefined, 8))
-  // the mask: a big smiling face on a stand
-  p.push(cyl(0.05, 0.07, 1.1, C.woodDark, [0, 0.9, -0.15]))
-  const face = sphere(0.78, C.white, [0, 0, 0], 20)
-  face.scale(1, 1.15, 0.32)
-  face.translate(0, 2.0, -0.15)
-  p.push(face)
-  for (const x of [-0.28, 0.28]) {
-    const eye = sphere(0.14, C.ink, [0, 0, 0], 12)
-    eye.scale(1.1, 0.75, 0.35)
-    eye.translate(x, 2.17, 0.08)
-    p.push(eye)
-    p.push(sphere(0.09, C.pink, [x * 1.55, 1.86, 0.03], 8))
-  }
-  p.push(torus(0.32, 0.05, C.ink, [0, 1.93, 0.09], [0, 0, Math.PI], Math.PI, 16))
-  // a smaller sad mask left on the stage floor
-  const sad = sphere(0.36, hex('#d9d2e6'), [0, 0, 0], 14)
-  sad.scale(1, 1.1, 0.32)
-  sad.rotateX(-1.2)
-  sad.translate(0.95, 0.5, 0.45)
-  p.push(sad)
-  // footlights
-  for (const x of [-1.1, 0, 1.1]) {
-    p.push(cyl(0.1, 0.12, 0.12, C.metal, [x, 0.45, 0.85]))
-    g.push(sphere(0.07, C.yellow, [x, 0.52, 0.85], 8))
-  }
-  return { body: merge(p), glow: merge(g) }
-}
-
-function BehindTheSmile({ def, night }: { def: IslandDef; night: boolean }) {
-  const parts = useMemo(() => stage(hex(def.accent)), [def.accent])
-  return (
-    <Spot def={def}>
-      <Body g={parts.body} />
-      <Glow g={parts.glow} night={night} />
-      {night && <pointLight position={[0, 1.6, 1.6]} color="#ffd9a0" intensity={5} distance={6} />}
-    </Spot>
-  )
-}
-
-/* ---------------- Sunken Greed: an underwater globe with a treasure chest ---------------- */
-
-function seaGlobe(): Parts {
-  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
-  const brass = hex('#c99a4a'), sand = hex('#ead8ab')
-  p.push(cyl(1.5, 1.65, 0.35, brass, [0, 0.17, 0], undefined, 28))
-  p.push(cyl(1.45, 1.45, 0.06, sand, [0, 0.37, 0], undefined, 28))
-  // chest
-  p.push(box([0.8, 0.45, 0.5], C.wood, [0, 0.62, 0]))
-  p.push(cyl(0.25, 0.25, 0.8, C.woodLight, [0, 0.86, -0.02], [0, 0, Math.PI / 2], 12))
-  p.push(box([0.84, 0.06, 0.06], C.gold, [0, 0.62, 0.26]))
-  g.push(blob(0.2, C.gold, [0.1, 0.92, 0.12], 0.5, 3))
-  ;[[-0.7, 0.45, 0.6], [0.75, 0.42, 0.5], [0.55, 0.42, -0.6]].forEach(([x, y, z], i) => g.push(sphere(0.07, C.gold, [x, y, z], 8)))
-  // coral and seaweed
-  ;[[-0.9, -0.3, '#f28a7a'], [-0.6, -0.8, '#f29ac0'], [0.9, -0.2, '#ffb35c']].forEach(([x, z, c]) => {
-    for (let k = 0; k < 3; k++) p.push(cone(0.08, 0.5 + k * 0.12, hex(c as string), [(x as number) + k * 0.1, 0.62 + k * 0.05, (z as number) + (k - 1) * 0.08], [0, 0, (k - 1) * 0.3], 6))
-  })
-  for (let i = 0; i < 5; i++) p.push(cyl(0.03, 0.05, 1.0 + (i % 3) * 0.3, hex('#5f9e3a'), [-0.3 + i * 0.22, 0.9, -0.9 + (i % 2) * 0.2], [0.1 * (i % 2 ? 1 : -1), 0, 0.15 * (i - 2)], 5))
-  // diving helmet outside the globe
-  p.push(sphere(0.42, brass, [1.85, 0.42, 0.9], 16))
-  p.push(cyl(0.2, 0.2, 0.08, C.metal, [1.85, 0.48, 1.32], [Math.PI / 2, 0, 0], 14))
-  g.push(cyl(0.15, 0.15, 0.09, C.glass, [1.85, 0.48, 1.34], [Math.PI / 2, 0, 0], 14))
-  p.push(torus(0.42, 0.05, C.metal, [1.85, 0.08, 0.9], [Math.PI / 2, 0, 0]))
-  return { body: merge(p), glow: merge(g) }
-}
-
-function SunkenGreed({ def, night }: { def: IslandDef; night: boolean }) {
-  const parts = useMemo(seaGlobe, [])
-  const fish = useRef<THREE.Group>(null)
-  const fishGeo = useMemo(() => {
-    const body = sphere(0.12, hex('#ff9a3c'), [0, 0, 0], 10)
-    body.scale(1.6, 1, 0.6)
-    return merge([body, cone(0.08, 0.14, hex('#ff7a2c'), [-0.22, 0, 0], [0, 0, Math.PI / 2], 6)])
-  }, [])
-  useFrame((_, dt) => spin(fish, 'y', 0.8, dt))
-  return (
-    <Spot def={def}>
-      <Body g={parts.body} />
-      <Glow g={parts.glow} night={night} day="#efe6cf" />
-      <group ref={fish} position={[0, 1.6, 0]}>
-        {[0, 2.1, 4.2].map((a, i) => (
-          <mesh key={i} geometry={fishGeo} position={[Math.cos(a) * 0.95, (i - 1) * 0.35, Math.sin(a) * 0.95]} rotation={[0, -a + Math.PI / 2, 0]}>
-            <meshLambertMaterial vertexColors />
-          </mesh>
-        ))}
-      </group>
-      <mesh position={[0, 1.75, 0]} renderOrder={2}>
-        <sphereGeometry args={[1.5, 32, 24]} />
-        <meshLambertMaterial color="#62c6d6" transparent opacity={0.32} depthWrite={false} emissive="#1a6f80" emissiveIntensity={night ? 0.6 : 0.15} />
-      </mesh>
-      {night && <pointLight position={[0, 1.6, 1.8]} color="#7fe0f0" intensity={5} distance={6} />}
-    </Spot>
-  )
 }
 
 /* ---------------- Paper Plane Dash: an endless track curling into the sky ---------------- */
@@ -389,11 +285,11 @@ function Journey({ def }: { def: IslandDef }) {
 export function IslandLandmark({ def, night, simple }: { def: IslandDef; night: boolean; simple: boolean }) {
   switch (def.id) {
     case 'behind-the-smile':
-      return <BehindTheSmile def={def} night={night} />
+      return <BehindTheSmile def={def} night={night} simple={simple} />
     case 'chrono-rebellion':
       return <ChronoRebellion def={def} night={night} simple={simple} />
     case 'sunken-greed':
-      return <SunkenGreed def={def} night={night} />
+      return <SunkenGreed def={def} night={night} simple={simple} />
     case 'paper-plane-dash':
       return <PaperPlaneDash def={def} night={night} />
     case 'merge-defence':

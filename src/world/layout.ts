@@ -18,9 +18,9 @@ const v = (x: number, y: number, z: number): [number, number, number] => [x * S,
 
 export const ISLANDS: IslandDef[] = [
   { id: 'home', name: 'Home Isle', position: v(0, 0, 0), radius: 7 * S, accent: '#F26B3A', flora: 'leafy' },
-  { id: 'behind-the-smile', name: 'Behind the Smile', position: v(-20, 3, -18), radius: 4.8 * S, accent: '#C94F6D', flora: 'mixed' },
+  { id: 'behind-the-smile', name: 'Behind the Smile', position: v(-20, 3, -18), radius: 6.2 * S, accent: '#C94F6D', flora: 'mixed' },
   { id: 'chrono-rebellion', name: 'Chrono Rebellion', position: v(2, 5, -32), radius: 6.6 * S, accent: '#7B61C9', flora: 'pine' },
-  { id: 'sunken-greed', name: 'Sunken Greed', position: v(24, -1, -20), radius: 4.8 * S, accent: '#2F8F9D', flora: 'leafy' },
+  { id: 'sunken-greed', name: 'Sunken Greed', position: v(24, -1, -20), radius: 6.2 * S, accent: '#2F8F9D', flora: 'leafy' },
   { id: 'paper-plane-dash', name: 'Paper Plane Dash', position: v(32, 4, 2), radius: 4.8 * S, accent: '#F2B33D', flora: 'mixed' },
   { id: 'merge-defence', name: 'Merge Defence', position: v(20, 1, 22), radius: 6.4 * S, accent: '#5DA05A', flora: 'leafy' },
   { id: 'harbor', name: 'The Harbor', position: v(-4, -1.5, 18), radius: 4.4 * S, accent: '#3E6E8E', flora: 'leafy' },
@@ -38,10 +38,10 @@ export type StopDef = {
 
 export const STOPS: StopDef[] = [
   { id: 'home', label: 'Home', island: 'home', offset: [1.5 * S, 2 * S] },
-  { id: 'behind-the-smile', label: 'Behind the Smile', island: 'behind-the-smile', offset: [0, 1.2 * S] },
+  { id: 'behind-the-smile', label: 'Behind the Smile', island: 'behind-the-smile', offset: [1.8 * S, 2.46 * S] },
   // stands nearer the front rim than on other islands: the diorama behind him needs the depth
   { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [1.91 * S, 2.6 * S] },
-  { id: 'sunken-greed', label: 'Sunken Greed', island: 'sunken-greed', offset: [0, 1.2 * S] },
+  { id: 'sunken-greed', label: 'Sunken Greed', island: 'sunken-greed', offset: [1.8 * S, 2.46 * S] },
   { id: 'paper-plane-dash', label: 'Paper Plane Dash', island: 'paper-plane-dash', offset: [0, 1.2 * S] },
   { id: 'merge-defence', label: 'Merge Defence', island: 'merge-defence', offset: [1.8 * S, 2.46 * S] },
   { id: 'harbor', label: 'More work', island: 'harbor', offset: [0, 1.2 * S] },
@@ -127,6 +127,43 @@ export const MERGE = (() => {
   }
 })()
 
+/**
+ * Behind the Smile: a town square where everyone wears the same smiling mask.
+ * An angel (the player) lifts one villager's mask, sees he is scared of a spider, and helps.
+ */
+export const SMILE = (() => {
+  const n = (side: number, back: number) => nearStop('behind-the-smile', side, back)
+  return {
+    plaza: n(-0.3, 5.2),
+    gate: n(0.2, 11.4),
+    houses: [n(-5.6, 8.8), n(5.6, 9.2)],
+    statue: n(-0.2, 7.2),
+    lamp: n(-3.6, 2.9),
+    scared: n(-2.3, 2.3),
+    basket: n(-1.2, 3.6),
+    villagers: [n(-5.6, 5.0), n(-3.4, 6.4), n(2.4, 6.6), n(5.4, 5.4), n(4.0, 7.6)],
+    cart: n(6.2, 3.0),
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
+
+/**
+ * Sunken Greed: the dive, told in order. Base dome, three empty search spots, a whale crossing the path,
+ * the treasure chest, and the mosasaurus that ends the run.
+ */
+export const SUNK = (() => {
+  const n = (side: number, back: number) => nearStop('sunken-greed', side, back)
+  return {
+    sand: n(0.2, 6.0),
+    base: n(-5.4, 8.6),
+    spots: [n(-4.6, 3.4), n(-1.4, 6.6), n(2.4, 9.0)],
+    chest: n(5.6, 6.2),
+    beast: n(10.4, 7.6),
+    reef: [n(-2.6, 9.6), n(0.6, 4.0), n(4.6, 9.4), n(-6.4, 5.8), n(6.6, 3.4), n(1.4, 11.2)],
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
+
 /** Where the centrepiece of every other island stands: behind the Pilot and a little to the left, clear of the ship. */
 export const CENTREPIECE: [number, number] = [-2.0 * S, -0.6 * S]
 
@@ -197,6 +234,25 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       ...m.lane.map((q): [number, number, number] => [...q, 0.9]),
       ...m.views.map((q): [number, number, number] => [...q, 2.0]),
     ]
+  }
+  const spots = (list: [[number, number], number][]): [number, number, number][] => list.map(([q, r]) => [q[0], q[1], r])
+  if (def.id === 'behind-the-smile') {
+    const t = SMILE
+    return spots([
+      [t.gate, 2.6], [t.statue, 1.6], [t.lamp, 0.7], [t.scared, 0.9], [t.basket, 0.8], [t.cart, 1.3], [t.plaza, 2.5],
+      ...t.houses.map((q): [[number, number], number] => [q, 2.6]),
+      ...t.villagers.map((q): [[number, number], number] => [q, 0.8]),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
+  }
+  if (def.id === 'sunken-greed') {
+    const t = SUNK
+    return spots([
+      [t.base, 2.8], [t.chest, 1.6], [t.sand, 3.0],
+      ...t.spots.map((q): [[number, number], number] => [q, 1.4]),
+      ...t.reef.map((q): [[number, number], number] => [q, 1.0]),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
   }
   return [[...CENTREPIECE, 3.3]]
 }
