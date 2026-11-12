@@ -1,0 +1,21 @@
+# Extra facts for Echo, the portfolio chatbot. Professional information only.
+# Each entry becomes one searchable passage. Keep answers short and true.
+facts:
+  - title: About this portfolio
+    href: "#home"
+    text: >-
+      This portfolio is an interactive 3D world of floating islands built with Three.js and React Three Fiber.
+      Each main game project has its own island with a small scene about the game, and a sky-ship carries
+      Burhanuddin's character between them as you scroll. There is a day and night mode and a graphics setting.
+  - title: Getting in touch
+    href: "#contact"
+    text: >-
+      The best way to reach Burhanuddin is the contact form at the end of the tour, or email at
+      burhanuddinhantela@gmail.com. His LinkedIn is linkedin.com/in/burhanuddin-hassan and his games are on
+      itch.io at burhanuddin-hassan.itch.io. His CV can be downloaded from the Home stop.
+  - title: What he is looking for
+    href: "#home"
+    text: >-
+      Burhanuddin is looking for a game development internship or a junior role, in gameplay programming or
+      technical environment work: scene setup, lighting, shaders and procedural levels. He works in Unity (C#),
+      Unreal Engine 5 (Blueprints) and Three.js.

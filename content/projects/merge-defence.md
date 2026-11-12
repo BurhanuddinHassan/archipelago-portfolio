@@ -9,23 +9,21 @@ role: Sole developer
 engine: [Unity, C#]
 tags: [2D, Mobile, Tower Defence]
 category: 2d
-summary: Mobile merge tower-defence game for Android, published on itch.io.
+summary: "Mobile merge tower-defence game built solo in 3 days as an internship technical assessment, published for Android on itch.io."
 video: K5sapnZdHNY
 thumbnail: /images/merge-defence.webp
 links:
   play: https://burhanuddin-hassan.itch.io/merge-defence
 ---
 
-## The problem
-A tower defence game where you summon units and merge matching ones to make them stronger, while waves get harder.
+## The project
+I built this alone in three days as the technical assessment for an internship. All the art assets are sourced from online asset packs; all the game logic is mine.
 
-## My role
-Built it alone, from design to publishing.
-
-## How I built it
-- **Grid merge rules:** dropping a unit onto a matching unit merges them into the next tier.
-- **Wave scaling** that raises difficulty over time.
-- **Spawning many units at once** while keeping the frame rate steady on phones.
+## What I built
+- **Cannon merging:** drop a cannon onto a matching one to merge it into the next level, up to level 5.
+- **Monster waves:** three monster types, wave logic, and cannon targeting and shooting.
+- **Lives:** monsters that reach the castle cost a life.
+- **Power-ups:** killing monsters gives coins, raises the score and fills a power-up meter, with different amounts per monster type. The three power-ups are a shield (about 10 seconds where monsters at the castle cost no lives), rapid fire (double fire rate) and fire power (double damage).
 
 ## Result
-Published for Android on itch.io. <!-- TODO: downloads or plays, wave count -->
+Published for Android on itch.io.

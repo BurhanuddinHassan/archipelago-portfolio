@@ -1,3 +1,4 @@
+import Echo from './tour/Echo'
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { STOPS } from './world/layout'
 import { Section, stopContent } from './tour/Sections'
@@ -84,7 +85,7 @@ export default function App() {
       </main>
       <ProgressRail />
       <p className="drag-hint" aria-hidden="true">Drag to look around</p>
-      <EchoButton />
+      <Echo />
       <MobileNotice />
       <Toast />
     </div>
@@ -143,15 +144,6 @@ function ProgressRail() {
         ))}
       </ol>
     </nav>
-  )
-}
-
-function EchoButton() {
-  const showToast = useStore((s) => s.showToast)
-  return (
-    <button className="echo" onClick={() => showToast('Echo, my portfolio chatbot, is coming soon.')} aria-label="Ask Echo, the portfolio chatbot">
-      <span aria-hidden="true">✦</span> Ask Echo
-    </button>
   )
 }
 

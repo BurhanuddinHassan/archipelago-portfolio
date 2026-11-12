@@ -4,29 +4,25 @@ slug: paper-plane-dash
 island: paper-plane-dash
 order: 4
 year: TODO
-team: Team project
+team: Team of 3
 role: Co-developer
 engine: [Unreal Engine 5, Blueprints]
 tags: [3D, Endless Runner, Procedural]
 category: 3d
-summary: Endless runner in Unreal Engine 5, built entirely in Blueprints.
+summary: "3-lane endless runner in Unreal Engine 5 (Blueprints), set in a low-poly Japanese anime-style town. CEGA Unreal Engine course final project."
 video: OQCn7CIqIlI
 thumbnail: /images/paper-plane-dash.webp
 links: {}
 ---
 
-## The problem
-An endless runner where the track never runs out and the frame rate never drops.
+## The project
+The final project for the CEGA Unreal Engine course, made by a team of three. One teammate had already built a similar three-lane endless runner, so we reskinned it as a paper plane flying through a low-poly, Japanese anime-style town and added new systems.
 
 ## My role
-Co-developer. <!-- TODO: which systems were yours -->
+Gameplay programmer: the new systems and the asset integration.
 
-## How I built it
-- **Procedural track generation** that spawns and recycles track pieces ahead of the player.
-- **Lane switching** and an **energy system**.
-- **Custom camera timelines** for movement and impact moments.
-- **Obstacle spawning** that scales as the run goes on.
-
-## Result
-<!-- TODO: what shipped, a number (fps, run length), a link -->
-Playable endless runner built without C++.
+## What I built
+- **Energy system:** instead of collecting coins, the plane needs energy pickups. Miss them and the energy bar drains until the plane falls.
+- **Camera moves:** when the plane ducks under a fan, the camera pulls back and then returns.
+- **Automatic speed scaling,** so the run gets faster the longer you survive.
+- **Asset integration** for the models my teammate made or sourced.
