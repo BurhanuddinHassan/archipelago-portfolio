@@ -1,14 +1,21 @@
 /**
  * Echo, the portfolio chatbot: POST /api/chat  { question: string, history?: {role, content}[] }
  * 1. Retrieve the most relevant portfolio passages (BM25, see _lib/retrieve.ts).
- * 2. Ask the model (Gemini 2.5 Flash Lite through Vercel AI Gateway) to answer ONLY from them, citing [n].
+ * 2. Ask Gemini 2.5 Flash Lite to answer ONLY from them, citing [n]. Uses Google's Gemini API when GEMINI_API_KEY
+ *    is set (free tier, no card), otherwise Vercel AI Gateway (AI_GATEWAY_API_KEY or the deployment's OIDC token).
  * 3. Return { answer, sources } where sources are the passages it cited, each linking to its tour stop.
  * If the model can't be reached, answer with the best matching passage instead of failing.
  */
 import { retrieve, type Passage } from './_lib/retrieve.js'
 
-const MODEL = 'google/gemini-2.5-flash-lite'
-const GATEWAY = 'https://ai-gateway.vercel.sh/v1/chat/completions'
+// both providers speak the OpenAI chat-completions format, so only the URL, key and model name differ
+function provider(req: Request) {
+  const gemini = process.env.GEMINI_API_KEY
+  if (gemini) return { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', key: gemini, model: 'gemini-2.5-flash-lite', name: 'gemini' }
+  const key = process.env.AI_GATEWAY_API_KEY ?? req.headers.get('x-vercel-oidc-token') ?? process.env.VERCEL_OIDC_TOKEN
+  if (key) return { url: 'https://ai-gateway.vercel.sh/v1/chat/completions', key, model: 'google/gemini-2.5-flash-lite', name: 'gateway' }
+  return null
+}
 const MAX_Q = 500
 const MAX_HISTORY = 6
 
@@ -83,14 +90,14 @@ async function answer(req: Request, body: { question?: unknown; history?: unknow
   const passages = retrieve(`${question} ${lastUser}`)
   const context = passages.map((p, i) => `[${i + 1}] ${p.title}\n${p.text}`).join('\n\n')
 
-  const token = process.env.AI_GATEWAY_API_KEY ?? req.headers.get('x-vercel-oidc-token') ?? process.env.VERCEL_OIDC_TOKEN
-  if (!token) return json(fallback(passages))
+  const llm = provider(req)
+  if (!llm) return json(fallback(passages))
   try {
-    const res = await fetch(GATEWAY, {
+    const res = await fetch(llm.url, {
       method: 'POST',
-      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      headers: { authorization: `Bearer ${llm.key}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODEL,
+        model: llm.model,
         temperature: 0.2,
         max_tokens: 350,
         messages: [{ role: 'system', content: `${SYSTEM}\n\nPortfolio passages:\n${context}` }, ...history, { role: 'user', content: question }],
@@ -98,7 +105,7 @@ async function answer(req: Request, body: { question?: unknown; history?: unknow
       signal: AbortSignal.timeout(15_000),
     })
     if (!res.ok) {
-      console.error('gateway', res.status, (await res.text()).slice(0, 300))
+      console.error(llm.name, res.status, (await res.text()).slice(0, 300))
       return json(fallback(passages))
     }
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
@@ -106,7 +113,7 @@ async function answer(req: Request, body: { question?: unknown; history?: unknow
     if (!text) return json(fallback(passages))
     return json({ answer: text, sources: sourcesFrom(text, passages) })
   } catch (e) {
-    console.error('gateway error', e)
+    console.error(llm.name, 'error', e)
     return json(fallback(passages))
   }
 }
