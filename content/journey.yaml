@@ -7,12 +7,12 @@ entries:
     where: NED University of Engineering and Technology
     text: Final year. Focus on game engine architecture, AI behaviour systems and 3D mechanics.
   - kind: leadership
-    when: TODO dates
+    when: 2026
     title: Technical Team Lead, Gameverse Society
     where: NED University, Dept. of CS & IT
     text: >-
       Lead the society's technical team, covering member recruitment, workshop planning and technical execution.
-      Planned the technical setup for GameCon, the society's game jam, ahead of the event.
+      Planned the technical setup for GameCon, the society's game jam (20 Oct 2026), ahead of the event.
   - kind: award
     when: 2026
     title: Global Game Jam 2026, 6th of 25 teams
