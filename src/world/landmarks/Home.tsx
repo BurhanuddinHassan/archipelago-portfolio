@@ -5,7 +5,9 @@ import * as THREE from 'three'
 import { FACE_YAW, HOME_PIECES, groundY, type IslandDef } from '../layout'
 import { profile } from '../../content'
 import { shadowTexture } from '../Ambient'
-import { C, blob, box, canvasTexture, cyl, disc, hex, merge, prism, sphere } from './kit'
+import { C, blob, box, canvasTexture, cone, cyl, disc, hex, merge, prism, sphere, torus } from './kit'
+import { Board, labelTex, pathRibbon, placer } from './parts'
+import { At } from './Chrono'
 
 /**
  * Home Isle: a cosy cottage, an outdoor cinema for the trailer, a post box at the Contact stop,
@@ -397,6 +399,150 @@ function Lanterns({ def, night }: { def: IslandDef; night: boolean }) {
   )
 }
 
+/* ---------------- The lived-in extras: paths, a signpost, garden, well, campfire, picnic table, studio, hammock ---------------- */
+
+const IRONH = hex('#4a4d55'), SOIL = hex('#7a5a40')
+
+function garden() {
+  const p: THREE.BufferGeometry[] = []
+  p.push(box([2.9, 0.1, 2.1], SOIL, [0, 0.05, 0]))
+  for (let i = 0; i < 4; i++) p.push(box([2.7, 0.1, 0.3], hex('#8a6748'), [0, 0.12, -0.75 + i * 0.5]))
+  // rows: cabbages, carrots, pumpkins, tomatoes on canes
+  for (let i = 0; i < 5; i++) p.push(blob(0.17, hex('#8fc46a'), [-1.1 + i * 0.55, 0.26, -0.75], 0.8, i + 1))
+  for (let i = 0; i < 6; i++) p.push(cone(0.07, 0.3, hex('#5fa04a'), [-1.15 + i * 0.46, 0.32, -0.25], undefined, 5), cone(0.05, 0.12, hex('#ff8a3c'), [-1.15 + i * 0.46, 0.2, -0.25], [Math.PI, 0, 0], 5))
+  for (let i = 0; i < 3; i++) p.push(sphere(0.2, hex('#f2913d'), [-0.9 + i * 0.9, 0.3, 0.25], 8).scale(1, 0.75, 1).translate(0, 0.07, 0), cyl(0.02, 0.03, 0.1, hex('#5fa04a'), [-0.9 + i * 0.9, 0.5, 0.25], undefined, 4))
+  for (let i = 0; i < 4; i++) p.push(cyl(0.015, 0.015, 0.8, C.woodLight, [-1.0 + i * 0.66, 0.5, 0.75], undefined, 4), blob(0.16, hex('#5fa04a'), [-1.0 + i * 0.66, 0.55, 0.75], 1.4, i + 7), sphere(0.05, C.red, [-0.92 + i * 0.66, 0.5, 0.83], 5), sphere(0.05, C.red, [-1.06 + i * 0.66, 0.68, 0.8], 5))
+  // picket fence with a gap at the front, and a watering can
+  for (let x = -1.6; x <= 1.61; x += 0.32) {
+    p.push(box([0.08, 0.5, 0.04], C.white, [x, 0.25, -1.2]))
+    if (Math.abs(x) > 0.4) p.push(box([0.08, 0.5, 0.04], C.white, [x, 0.25, 1.2]))
+  }
+  for (let z = -0.9; z <= 0.91; z += 0.3) for (const x of [-1.6, 1.6]) p.push(box([0.04, 0.5, 0.08], C.white, [x, 0.25, z]))
+  p.push(box([3.2, 0.05, 0.03], C.white, [0, 0.33, -1.2]), box([0.03, 0.05, 2.4], C.white, [-1.6, 0.33, 0]), box([0.03, 0.05, 2.4], C.white, [1.6, 0.33, 0]))
+  p.push(cyl(0.12, 0.12, 0.22, hex('#6fa8c9'), [1.95, 0.11, 0.9], undefined, 8), cyl(0.02, 0.03, 0.3, hex('#6fa8c9'), [2.12, 0.2, 0.9], [0, 0, -0.9], 5))
+  return merge(p)
+}
+
+function well() {
+  const p: THREE.BufferGeometry[] = []
+  p.push(cyl(0.75, 0.8, 0.7, C.stone, [0, 0.35, 0], undefined, 12), torus(0.72, 0.09, C.stoneDark, [0, 0.72, 0], [Math.PI / 2, 0, 0], Math.PI * 2, 14), cyl(0.6, 0.6, 0.02, hex('#3f6e8a'), [0, 0.6, 0], undefined, 12))
+  for (const x of [-0.7, 0.7]) p.push(box([0.1, 1.7, 0.1], C.woodDark, [x, 1.2, 0]))
+  p.push(cyl(0.05, 0.05, 1.5, C.wood, [0, 1.75, 0], [0, 0, Math.PI / 2], 6), prism(1.9, 0.6, 1.3, C.roof, [0, 2.0, 0]), box([2.0, 0.06, 1.4], C.roofDark, [0, 2.0, 0]))
+  p.push(cyl(0.012, 0.012, 0.6, hex('#d9c08a'), [0.15, 1.45, 0], undefined, 4), cyl(0.14, 0.11, 0.22, C.wood, [0.15, 1.08, 0], undefined, 8), box([0.3, 0.06, 0.06], IRONH, [0.9, 1.75, 0]))
+  return merge(p)
+}
+
+function projector() {
+  const p: THREE.BufferGeometry[] = []
+  for (const a of [0, 2.1, 4.2]) p.push(cyl(0.025, 0.025, 1.15, IRONH, [Math.cos(a) * 0.22, 0.52, Math.sin(a) * 0.22], [Math.sin(a) * 0.4, 0, -Math.cos(a) * 0.4], 4))
+  p.push(box([0.3, 0.3, 0.55], hex('#3a3f4c'), [0, 1.2, 0]), cyl(0.09, 0.11, 0.2, IRONH, [0, 1.2, -0.36], [Math.PI / 2, 0, 0], 8))
+  for (const z of [-0.12, 0.2]) p.push(cyl(0.2, 0.2, 0.05, hex('#6d6a66'), [0.05, 1.52, z], [0, 0, Math.PI / 2], 12))
+  return { body: merge(p), glow: cyl(0.07, 0.07, 0.02, hex('#fff2c4'), [0, 1.2, -0.47], [Math.PI / 2, 0, 0], 8) }
+}
+
+function picnic() {
+  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
+  p.push(box([1.9, 0.08, 0.9], C.woodLight, [0, 0.78, 0]))
+  for (const z of [-0.75, 0.75]) p.push(box([1.9, 0.07, 0.3], C.woodLight, [0, 0.45, z]))
+  for (const x of [-0.75, 0.75]) p.push(box([0.08, 0.8, 0.08], C.woodDark, [x, 0.4, 0], [0.5, 0, 0]), box([0.08, 0.8, 0.08], C.woodDark, [x, 0.4, 0], [-0.5, 0, 0]), box([0.08, 0.06, 1.8], C.woodDark, [x, 0.4, 0]))
+  // a sketchbook, a mug and a game controller
+  p.push(box([0.4, 0.03, 0.3], C.white, [-0.5, 0.84, 0.05], [0, 0.3, 0]), cyl(0.06, 0.05, 0.12, C.red, [0.0, 0.88, -0.2], undefined, 8))
+  p.push(box([0.3, 0.05, 0.14], hex('#2b2730'), [0.5, 0.85, 0.1], [0, -0.3, 0]), sphere(0.07, hex('#2b2730'), [0.38, 0.84, 0.16], 6), sphere(0.07, hex('#2b2730'), [0.62, 0.84, 0.1], 6))
+  g.push(sphere(0.025, hex('#7dffb0'), [0.55, 0.89, 0.08], 5))
+  return { body: merge(p), glow: merge(g) }
+}
+
+function campfire() {
+  const p: THREE.BufferGeometry[] = []
+  for (let i = 0; i < 8; i++) p.push(sphere(0.13, i % 2 ? C.stone : C.stoneDark, [Math.cos(i * 0.785) * 0.5, 0.07, Math.sin(i * 0.785) * 0.5], 6))
+  for (let i = 0; i < 3; i++) p.push(cyl(0.06, 0.06, 0.7, C.woodDark, [0, 0.14, 0], [0, (i * Math.PI) / 3, Math.PI / 2 - 0.25], 5))
+  for (const [x, z, r] of [[-1.3, 0.3, 1.2], [0.2, -1.35, 0.1], [1.3, 0.4, 1.9]]) p.push(cyl(0.2, 0.2, 1.1, C.wood, [x, 0.2, z], [0, r, Math.PI / 2], 8))
+  // a kettle on a hook
+  p.push(cyl(0.02, 0.02, 1.0, IRONH, [-0.55, 0.5, -0.4], [0, 0, -0.25], 4), cyl(0.02, 0.02, 0.6, IRONH, [-0.2, 0.98, -0.4], [0, 0, Math.PI / 2 - 0.2], 4), sphere(0.13, IRONH, [0.05, 0.75, -0.4], 8))
+  return merge(p)
+}
+const flameGeo = () => merge([cone(0.24, 0.6, hex('#ff8a3c'), [0, 0.3, 0], undefined, 6), cone(0.13, 0.4, C.yellow, [0.03, 0.22, 0.02], undefined, 6)])
+
+/** An open-air studio: where the games get made. Desk, two screens, a chair, shelves, under a pergola. */
+function studio(accent: THREE.Color) {
+  const p: THREE.BufferGeometry[] = [], g: THREE.BufferGeometry[] = []
+  p.push(box([3.4, 0.12, 2.6], C.woodLight, [0, 0.06, 0]))
+  for (const x of [-1.55, 1.55]) for (const z of [-1.15, 1.15]) p.push(box([0.13, 2.5, 0.13], C.woodDark, [x, 1.3, z]))
+  for (let i = 0; i < 7; i++) p.push(box([0.14, 0.08, 3.0], i % 2 ? C.wood : accent, [-1.5 + i * 0.5, 2.6, 0]))
+  for (const z of [-1.15, 1.15]) p.push(box([3.5, 0.1, 0.12], C.woodDark, [0, 2.52, z]))
+  p.push(box([2.0, 0.08, 0.8], C.wood, [0, 0.9, -0.6]))
+  for (const x of [-0.9, 0.9]) p.push(box([0.08, 0.8, 0.7], C.woodDark, [x, 0.5, -0.6]))
+  for (const [x, r] of [[-0.42, 0.18], [0.42, -0.18]]) {
+    p.push(box([0.78, 0.48, 0.05], C.ink, [x, 1.38, -0.8], [0, r, 0]), box([0.06, 0.2, 0.06], C.ink, [x, 1.04, -0.8]), box([0.3, 0.03, 0.2], C.ink, [x, 0.95, -0.8]))
+    g.push(box([0.7, 0.4, 0.02], x < 0 ? hex('#7de3ff') : hex('#ffd9a0'), [x + (r > 0 ? 0.005 : -0.005), 1.38, -0.77], [0, r, 0]))
+  }
+  p.push(box([0.6, 0.03, 0.2], hex('#d8dde6'), [0, 0.96, -0.42]), box([0.1, 0.03, 0.14], hex('#d8dde6'), [0.5, 0.96, -0.42]))
+  // chair, bookshelf, a plant, and a rug
+  p.push(box([0.5, 0.08, 0.5], accent, [0, 0.6, 0.15]), box([0.5, 0.6, 0.08], accent, [0, 0.95, 0.38]), cyl(0.04, 0.04, 0.5, IRONH, [0, 0.35, 0.15], undefined, 5), cyl(0.28, 0.28, 0.04, IRONH, [0, 0.14, 0.15], undefined, 8))
+  p.push(box([0.35, 1.5, 0.9], C.wood, [1.3, 0.87, -0.3]))
+  ;['#e0533d', '#5d8fd6', '#ffd75e', '#5fb37a', '#b78ae0', '#f29ac0'].forEach((c, i) => p.push(box([0.3, 0.3, 0.1], hex(c), [1.28, 0.45 + Math.floor(i / 3) * 0.5, -0.6 + (i % 3) * 0.14], [0, 0, 0])))
+  p.push(cyl(0.16, 0.12, 0.25, C.cream, [-1.25, 0.24, 0.7], undefined, 8), blob(0.32, hex('#5fa04a'), [-1.25, 0.65, 0.7], 1.2, 5))
+  p.push(box([1.4, 0.02, 1.0], hex('#c94f6d'), [0, 0.13, 0.5]))
+  return { body: merge(p), glow: merge(g) }
+}
+
+function hammock(accent: THREE.Color) {
+  const p: THREE.BufferGeometry[] = []
+  for (const x of [-1.25, 1.25]) p.push(cyl(0.07, 0.09, 1.7, C.woodDark, [x, 0.85, 0], [0, 0, x > 0 ? -0.12 : 0.12], 6))
+  const cloth = torus(1.25, 0.05, accent, undefined, undefined, Math.PI, 16)
+  cloth.scale(1, 0.45, 7).rotateZ(Math.PI).translate(0, 1.45, 0)
+  p.push(cloth, box([0.4, 0.12, 0.3], C.white, [-0.75, 1.05, 0], [0, 0, -0.35]))
+  return merge(p)
+}
+
+function Extras({ def, night }: { def: IslandDef; night: boolean }) {
+  const h = HOME_PIECES
+  const g = useMemo(() => {
+    const put = placer(def), accent = hex(def.accent), p: THREE.BufferGeometry[] = [], glow: THREE.BufferGeometry[] = []
+    const stoneA = hex('#e2d3ae'), stoneB = hex('#d6c59c')
+    const paths = h.paths.map((pts) => pathRibbon(def, pts, 0.95, stoneA, stoneB, 50).geometry)
+    const pr = projector(), pi = picnic(), st = studio(accent)
+    p.push(put(garden(), h.garden, 0.25), put(well(), h.well, -0.2, 1.1), put(campfire(), h.campfire, 0.4), put(hammock(hex('#2F8F9D')), h.hammock, 0.2))
+    p.push(put(pr.body, h.projector, Math.PI * 0.82), put(pi.body, h.picnic, 0.5), put(st.body, h.studio, -0.25))
+    glow.push(put(pr.glow, h.projector, Math.PI * 0.82), put(pi.glow, h.picnic, 0.5), put(st.glow, h.studio, -0.25))
+    // signpost: a post with three arrow planks
+    p.push(put(merge([cyl(0.07, 0.09, 2.9, C.woodDark, [0, 1.45, 0], undefined, 6), sphere(0.11, C.gold, [0, 2.95, 0], 6)]), h.signpost))
+    return { paths, body: merge(p), glow: merge(glow), flame: flameGeo() }
+  }, [def, h])
+  const signs = useMemo(() => [labelTex('SCROLL DOWN', 'Project islands', '#F26B3A', 512, 150), labelTex('FURTHER ON', 'Skills · Journey', '#B07A45', 512, 150), labelTex('ON THIS ISLE', 'Trailer · Contact', '#3E6E8E', 512, 150)], [])
+  const flame = useRef<THREE.Mesh>(null)
+  useFrame((s) => {
+    const t = s.clock.elapsedTime
+    if (flame.current) flame.current.scale.set(1 + Math.sin(t * 11) * 0.12, 1 + Math.sin(t * 7) * 0.2, 1 + Math.cos(t * 9) * 0.12)
+  })
+  return (
+    <>
+      {g.paths.map((geo, i) => (
+        <mesh key={i} geometry={geo} receiveShadow renderOrder={1}>
+          <meshLambertMaterial vertexColors polygonOffset polygonOffsetFactor={-3} />
+        </mesh>
+      ))}
+      <Piece body={g.body} />
+      <GlowMesh geometry={g.glow} night={night} day="#d9d2c4" />
+      <At def={def} xz={h.signpost}>
+        {signs.map((tex, i) => (
+          <group key={i} position={[0.1, 2.55 - i * 0.5, 0.06]} rotation={[0, [0.25, -0.2, 0.1][i], 0]}>
+            <group position={[0.62, 0, 0]}>
+              <Board tex={tex} w={1.3} h={0.38} y={0} posts={false} />
+            </group>
+          </group>
+        ))}
+      </At>
+      <At def={def} xz={h.campfire} turn={0.4}>
+        <mesh ref={flame} geometry={g.flame} position={[0, 0.1, 0]}>
+          <meshBasicMaterial vertexColors toneMapped={false} />
+        </mesh>
+        {night && <pointLight position={[0, 0.8, 0]} color="#ff9a4a" intensity={5} distance={7} />}
+      </At>
+    </>
+  )
+}
+
 export function HomeLandmarks({ def, night, interactive }: { def: IslandDef; night: boolean; interactive: boolean }) {
   return (
     <>
@@ -405,6 +551,7 @@ export function HomeLandmarks({ def, night, interactive }: { def: IslandDef; nig
       <PostBox def={def} />
       <Arcade def={def} interactive={interactive} />
       <Lanterns def={def} night={night} />
+      <Extras def={def} night={night} />
     </>
   )
 }

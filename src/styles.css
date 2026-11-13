@@ -334,3 +334,16 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .echo-panel .btn.primary:disabled { opacity: 0.45; }
 .contact.sent { display: grid; gap: 10px; }
 .turnstile { min-height: 65px; }
+
+/* ---------- Adventure Mode ---------- */
+html.adventure, html.adventure body { overflow: hidden; }
+html.adventure .tour, html.adventure .rail, html.adventure .drag-hint { visibility: hidden; }
+.adv-hud { position: fixed; inset: 0; z-index: 3; pointer-events: none; font-size: 0.9rem; }
+.adv-place { position: absolute; top: calc(var(--top-h, 56px) + 14px); left: 50%; transform: translateX(-50%); font-family: Fredoka, sans-serif; font-weight: 600; font-size: 1.15rem; background: var(--glass-solid, var(--panel)); padding: 6px 18px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14); }
+.adv-prompts { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); display: grid; gap: 8px; justify-items: center; }
+.adv-prompt { pointer-events: auto; font: inherit; font-weight: 600; color: var(--text); background: var(--panel); border: 0; padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); }
+button.adv-prompt { cursor: pointer; }
+button.adv-prompt:hover { background: var(--brand); color: #fff; }
+.adv-controls { position: absolute; left: 18px; bottom: 18px; margin: 0; padding: 12px 14px; list-style: none; display: grid; gap: 6px; background: var(--glass-solid, var(--panel)); border-radius: 14px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
+.adv-hud kbd { display: inline-block; min-width: 1.7em; text-align: center; font: 600 0.78rem Inter, sans-serif; padding: 2px 7px; margin-right: 6px; border-radius: 6px; background: var(--text); color: var(--bg, #fff); }
+.topbar .btn.small.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }

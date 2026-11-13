@@ -14,6 +14,8 @@ import { Balloons, Birds, BlobShadows, Butterflies, Clouds, Fireflies, NightSky,
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
 import { player } from './player'
+import { buildColliders, createAdventure } from './adventure'
+import { attachInput } from './input'
 
 const PALETTE = {
   day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 2.4, sunColor: '#ffe3c2', hemi: 1.2 },
@@ -83,6 +85,7 @@ export default function World() {
   // The island the Pilot is physically nearest: it changes when the ship is halfway across, not when he boards.
   // (A flight runs over the last 55% of a tour section, eased, so its midpoint is 72.5% through the section.)
   const activeIsland = useStore((s) => {
+    if (s.mode === 'adventure' && s.adv) return s.adv.island
     const i = Math.floor(s.progress)
     const k = Math.min(STOPS.length - 1, Math.max(0, s.progress - i > 0.725 ? i + 1 : i))
     return STOPS[k].island
@@ -91,6 +94,7 @@ export default function World() {
   // Shadows exist only on the island the Pilot is on. Laptops/desktops get real cast shadows (trees, buildings,
   // the Pilot, the ship); phones get cheap soft blobs; lite mode gets none.
   const realShadows = !lite && !mobile
+  const colliders = useMemo(() => buildColliders(Object.fromEntries(islands.map(({ def, placements }) => [def.id, placements]))), [islands])
   return (
     <Canvas
       dpr={liveDpr}
@@ -137,7 +141,7 @@ export default function World() {
         </Suspense>
       </ModelGuard>
       <Clouds count={lite ? 16 : mobile ? 26 : 56} night={theme === 'night'} />
-      <PilotRig night={theme === 'night'} blobShadow={!realShadows} />
+      <PilotRig night={theme === 'night'} blobShadow={!realShadows} colliders={colliders} />
       <ViewOffset />
     </Canvas>
   )
@@ -184,9 +188,11 @@ function AutoWatch({ lite, atFloor, setLite }: { lite: boolean; atFloor: boolean
  */
 function ViewOffset() {
   const { camera, size } = useThree()
+  const adventure = useStore((s) => s.mode === 'adventure')
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    if (size.width <= 820) {
+    if (adventure) cam.clearViewOffset() // no text panel: the Pilot goes back to the middle of the screen
+    else if (size.width <= 820) {
       // Phone: text cards cover the lower half, so lift the picture and keep the Pilot in the top third.
       cam.setViewOffset(size.width, size.height, 0, size.height * 0.2, size.width, size.height)
     } else {
@@ -194,7 +200,7 @@ function ViewOffset() {
       cam.setViewOffset(size.width, size.height, -panel / 2, 0, size.width, size.height)
     }
     cam.updateProjectionMatrix()
-  }, [camera, size])
+  }, [camera, size, adventure])
   return null
 }
 
@@ -362,12 +368,12 @@ function SkyDome({ top, horizon }: { top: string; horizon: string }) {
 }
 
 function IslandLabel({ def }: { def: IslandDef }) {
-  const active = useStore((s) => STOPS[s.activeStop]?.island === def.id)
+  const active = useStore((s) => (s.mode === 'adventure' ? s.adv?.island === def.id : STOPS[s.activeStop]?.island === def.id))
   const el = useRef<HTMLDivElement>(null)
   // Hidden during the opening close-up (labels of far islands would float over the portrait).
   useFrame(() => {
     if (!el.current) return
-    const show = !active && window.scrollY > window.innerHeight * 0.3
+    const show = !active && (useStore.getState().mode === 'adventure' || window.scrollY > window.innerHeight * 0.3)
     el.current.style.visibility = show ? 'visible' : 'hidden'
   })
   // Keep the Html mounted and hide it: unmounting drei Html mid-frame throws a removeChild error.
@@ -398,9 +404,12 @@ const MOOR_YAW = Math.atan2(MOOR_DIR[0], MOOR_DIR[1])
 /** Share of each flight spent hopping aboard, and hopping off. */
 const HOP = 0.14
 
-export type PilotPose = 'ground' | 'board' | 'sail' | 'land'
+export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land'
 
-function PilotRig({ night, blobShadow }: { night: boolean; blobShadow: boolean }) {
+function PilotRig({ night, blobShadow, colliders }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][] }) {
+  const adventure = useMemo(() => createAdventure(colliders), [colliders])
+  const inAdventure = useStore((s) => s.mode === 'adventure')
+  useEffect(() => (inAdventure ? attachInput() : undefined), [inAdventure])
   const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
   const moors = useMemo(() => STOPS.map((s) => new THREE.Vector3(...mooringAnchor(s))), [])
   const pilot = useRef<THREE.Group>(null)
@@ -439,6 +448,22 @@ function PilotRig({ night, blobShadow }: { night: boolean; blobShadow: boolean }
     const A = stands[i], B = stands[j], MA = moors[i], MB = moors[j]
     const sh = ship.current, pl = pilot.current
     if (!sh || !pl) return
+
+    // ---- Adventure Mode: the Pilot is driven by the keyboard or a controller instead of by scrolling
+    if (useStore.getState().mode === 'adventure') {
+      const k = Math.min(last, Math.round(p))
+      const out = adventure.step({ dt: Math.min(dt, 0.1), time, camera, pilot: pl, ship: sh, drag: orbit.current, start: { stand: stands[k], moor: moors[k], island: STOPS[k].island } })
+      pose.current = out.pose
+      camTarget.current.copy(pl.position)
+      if (shadow.current) shadow.current.visible = blobShadow && !out.onShip
+      if (propRef.current) propRef.current.rotation.z += dt * (out.sailing ? 22 : 2.5)
+      if (sailRef.current) sailRef.current.scale.z = 1 + Math.sin(time * 2.2) * (out.sailing ? 0.18 : 0.08)
+      if (lanternRef.current) lanternRef.current.color.set(night ? '#ffd27a' : '#f3d9a4')
+      orbit.current.yaw = 0
+      orbit.current.pitch = 0
+      return
+    }
+    adventure.reset()
 
     const faceCam = Math.atan2(camera.position.x - pl.position.x, camera.position.z - pl.position.z)
     const bob = Math.sin(time * 1.3) * 0.08
@@ -547,7 +572,7 @@ function PilotRig({ night, blobShadow }: { night: boolean; blobShadow: boolean }
  * The mouse wheel is left alone so it keeps scrolling the tour. Touch is ignored so phones scroll normally.
  */
 function useLookAround(el: HTMLElement) {
-  const orbit = useRef({ yaw: 0, pitch: 0, dragging: false, lastInput: -10, x: 0, y: 0 })
+  const orbit = useRef({ yaw: 0, pitch: 0, dragging: false, lastInput: -10, x: 0, y: 0, dx: 0, dy: 0 })
   const clock = useThree((s) => s.clock)
   useEffect(() => {
     const o = orbit.current
@@ -565,6 +590,9 @@ function useLookAround(el: HTMLElement) {
       if (!o.dragging) return
       o.yaw -= (e.clientX - o.x) * 0.006
       o.pitch -= (e.clientY - o.y) * 0.004
+      // raw deltas for Adventure Mode, which turns the camera freely
+      o.dx += (e.clientX - o.x) * 0.006
+      o.dy += (e.clientY - o.y) * 0.004
       o.yaw = Math.max(-2.2, Math.min(2.2, o.yaw))
       o.pitch = Math.max(-0.6, Math.min(0.5, o.pitch))
       o.x = e.clientX
@@ -661,6 +689,7 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
     if (p !== st.lastPose) {
       if (p === 'board' || p === 'sail') play('Sit')
       else if (p === 'land') play('Idle')
+      else if (p === 'walk') play('Walk')
       else play(st.lastPose === 'land' ? 'Wave' : 'Idle') // just stepped off the ship: wave hello
       st.lastPose = p
       st.nextFidget = time + 10 + Math.random() * 6

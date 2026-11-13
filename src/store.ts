@@ -4,7 +4,15 @@ type Theme = 'day' | 'night'
 /** low = always lite, high = always full detail, auto = decided by the measured frame rate */
 export type Graphics = 'low' | 'auto' | 'high'
 
+/** What Adventure Mode shows on screen: where you are, and what the action and read buttons would do. */
+export type AdvHud = { place: string; act: string | null; tip: string | null; read: string | null; pad: boolean; island: string; ship: boolean }
+
 type State = {
+  /** tour = driven by scrolling; adventure = you walk and sail yourself */
+  mode: 'tour' | 'adventure'
+  adv: AdvHud | null
+  /** Switch mode. Leaving Adventure Mode with a stop id scrolls the tour to that stop. */
+  setMode: (mode: 'tour' | 'adventure', stop?: string) => void
   /** Continuous tour position: 0 = first stop, 1 = second stop, … */
   progress: number
   activeStop: number
@@ -35,6 +43,13 @@ const savedGraphics = (): Graphics => {
 }
 
 export const useStore = create<State>((set, get) => ({
+  mode: 'tour',
+  adv: null,
+  setMode: (mode, stop) => {
+    if (mode === get().mode) return
+    set({ mode, adv: null })
+    if (mode === 'tour' && stop) window.setTimeout(() => document.getElementById(stop)?.scrollIntoView(), 60)
+  },
   progress: 0,
   activeStop: 0,
   theme: savedTheme(),

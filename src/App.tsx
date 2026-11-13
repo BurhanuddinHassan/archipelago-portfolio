@@ -59,6 +59,11 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
   }, [theme])
+  const mode = useStore((s) => s.mode)
+  useEffect(() => {
+    // Adventure Mode: the page stops scrolling and the tour text steps aside
+    document.documentElement.classList.toggle('adventure', mode === 'adventure')
+  }, [mode])
 
   return (
     <div className="app">
@@ -86,6 +91,7 @@ export default function App() {
       <ProgressRail />
       <p className="drag-hint" aria-hidden="true">Drag to look around</p>
       <Echo />
+      {mode === 'adventure' && <AdventureHud />}
       <MobileNotice />
       <Toast />
     </div>
@@ -98,6 +104,8 @@ function TopBar() {
   const showToast = useStore((s) => s.showToast)
   const graphics = useStore((s) => s.graphics)
   const cycleGraphics = useStore((s) => s.cycleGraphics)
+  const mode = useStore((s) => s.mode)
+  const setMode = useStore((s) => s.setMode)
   const GFX = { auto: 'Auto', high: 'High', low: 'Low' }
   const GFX_HINT = {
     auto: 'Graphics: Auto. Detail adjusts to how well your device keeps up.',
@@ -108,9 +116,18 @@ function TopBar() {
     <header className="topbar">
       <a className="mark" href="#home">{profile.name}</a>
       <div className="topbar-actions">
-        <button className="btn small" onClick={() => showToast('Adventure Mode is coming soon. The tour is live now.')}>
-          <span className="long">Explore freely</span>
-          <span className="short">Explore</span>
+        <button
+          className={mode === 'adventure' ? 'btn small on' : 'btn small'}
+          onClick={(e) => {
+            e.currentTarget.blur() // otherwise Space (jump) would press this button again
+            if (mode === 'adventure') return setMode('tour')
+            if (window.matchMedia('(max-width: 820px)').matches) return showToast('Adventure Mode needs a keyboard or a controller. Try it on a laptop.')
+            setMode('adventure')
+            showToast('Adventure Mode: walk with WASD, press E at the ship to sail.')
+          }}
+        >
+          <span className="long">{mode === 'adventure' ? 'Back to the tour' : 'Explore freely'}</span>
+          <span className="short">{mode === 'adventure' ? 'Tour' : 'Explore'}</span>
         </button>
         <button
           className="btn small"
@@ -126,6 +143,46 @@ function TopBar() {
         </button>
       </div>
     </header>
+  )
+}
+
+/** Adventure Mode overlay: where you are, what the buttons do right now, and the controls for the device in use. */
+function AdventureHud() {
+  const adv = useStore((s) => s.adv)
+  const setMode = useStore((s) => s.setMode)
+  const pad = adv?.pad ?? false
+  const sailing = adv?.ship ?? false
+  const key = (k: string, p: string) => <kbd>{pad ? p : k}</kbd>
+  const controls: [string, string, string][] = sailing
+    ? [['W S', 'Left stick', 'Speed'], ['A D', 'Left stick', 'Steer'], ['Shift', 'RT', 'Boost'], ['Drag / arrows', 'Right stick', 'Look']]
+    : [['W A S D', 'Left stick', 'Walk'], ['Shift', 'RT', 'Run'], ['Space', 'A', 'Jump'], ['Drag / arrows', 'Right stick', 'Look']]
+  return (
+    <div className="adv-hud" role="status" aria-live="polite">
+      <div className="adv-place">{adv?.place ?? 'Adventure Mode'}</div>
+      <div className="adv-prompts">
+        {adv?.act && (
+          <div className="adv-prompt">
+            {key('E', 'X')} {adv.act}
+          </div>
+        )}
+        {adv?.tip && <div className="adv-prompt">{adv.tip}</div>}
+        {adv?.read && (
+          <button className="adv-prompt" onClick={() => setMode('tour', adv.read!)}>
+            {key('F', 'Y')} Read about this place
+          </button>
+        )}
+      </div>
+      <ul className="adv-controls">
+        {controls.map(([k, p, what]) => (
+          <li key={what}>
+            {key(k, p)} {what}
+          </li>
+        ))}
+        <li>
+          {key('Esc', 'B')} Back to the tour
+        </li>
+      </ul>
+    </div>
   )
 }
 

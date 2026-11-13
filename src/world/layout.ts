@@ -83,6 +83,19 @@ export const HOME_PIECES = {
   benchR: nearStop('cinema', 1.7, 1.0),
   postbox: nearStop('contact', -1.7, 0.5),
   arcade: nearStop('home', 1.2, 2.2),
+  // the lived-in extras: low things may stand in a sight-line, tall ones are kept clear of all three
+  signpost: nearStop('home', -2.6, 1.2),
+  garden: nearStop('home', -5.6, 4.2),
+  campfire: nearStop('home', -3.0, -3.0),
+  well: nearStop('contact', 1.4, 3.6),
+  projector: nearStop('cinema', -1.8, -2.2),
+  picnic: nearStop('cinema', -3.4, -3.6),
+  studio: [1.0, -8.3] as [number, number],
+  hammock: [-2.6, -8.0] as [number, number],
+  paths: [
+    [[-0.1, 1.13], [1.2, 2.5], [2.55, 3.4], [4.3, 1.2], [5.3, -1.5], [5.44, -3.74]],
+    [[1.2, 2.5], [-2.3, 1.9], [-5.2, 0.2], [-7.14, -2.04]],
+  ] as [number, number][][],
   lanterns: [nearStop('home', -2.6, 0.4), nearStop('home', 2.6, 3.8), nearStop('cinema', -3.1, 1.9), nearStop('contact', -0.5, 2.6), nearStop('contact', -3.4, 0.2)],
 }
 
@@ -275,6 +288,8 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       [...h.benchR, 1.0],
       [...h.postbox, 1.0],
       [...h.arcade, 1.0],
+      [...h.signpost, 0.7], [...h.garden, 2.0], [...h.campfire, 1.8], [...h.well, 1.3], [...h.projector, 0.9], [...h.picnic, 1.5], [...h.studio, 2.0], [...h.hammock, 1.6],
+      ...h.paths.flat().map((q): [number, number, number] => [q[0], q[1], 0.8]),
       ...h.lanterns.map((l): [number, number, number] => [...l, 0.7]),
     ]
   }
@@ -385,3 +400,41 @@ export function mooringAnchor(stop: StopDef): [number, number, number] {
   const z = stop.offset[1] + MOOR_DIR[1] * MOOR_DIST
   return [i.position[0] + x, i.position[1] + groundY(i, x, z) + 0.9, i.position[2] + z]
 }
+
+/**
+ * Solid things on an island (x, z, radius, island-local): what the Pilot can't walk through in Adventure Mode.
+ * Unlike landmarkSpots these are the objects themselves, not the clearings kept around them.
+ */
+export function solidSpots(def: IslandDef): [number, number, number][] {
+  const c = (list: [[number, number], number][]): [number, number, number][] => list.map(([q, r]) => [q[0], q[1], r])
+  const each = (qs: [number, number][], r: number): [[number, number], number][] => qs.map((q) => [q, r])
+  switch (def.id) {
+    case 'home': {
+      const h = HOME_PIECES
+      return c([[h.cottage, 2.5], [h.screen, 2.2], [h.benchL, 0.7], [h.benchR, 0.7], [h.postbox, 0.45], [h.arcade, 0.6], [h.signpost, 0.3], [h.garden, 1.6], [h.campfire, 0.6], [h.well, 0.9], [h.projector, 0.5], [h.picnic, 1.1], [h.studio, 1.5], [h.hammock, 1.0], ...each(h.lanterns, 0.25)])
+    }
+    case 'chrono-rebellion':
+      return c([[CHRONO.tower, 1.6], [CHRONO.bunker, 1.8], [CHRONO.sandbags, 1.0], [CHRONO.watch, 0.8], [CHRONO.crate, 0.6], [CHRONO.pad, 1.8], [CHRONO.pods, 0.7], ...each(CHRONO.pylons, 0.4)])
+    case 'merge-defence':
+      return c([[MERGE.castle, 2.4], [MERGE.cave, 1.8], ...each(MERGE.shrines, 0.6)])
+    case 'behind-the-smile':
+      return c([[SMILE.statue, 1.0], [SMILE.lamp, 0.3], [SMILE.cart, 1.0], [SMILE.basket, 0.5], ...each(SMILE.houses, 2.0), ...each(SMILE.villagers, 0.4)])
+    case 'sunken-greed':
+      return c([[SUNK.base, 2.4], [SUNK.chest, 0.9], ...each(SUNK.reef, 0.7)])
+    case 'paper-plane-dash':
+      return c([[DASH.vending, 0.5], [DASH.bench, 0.6], ...each(DASH.houses, 1.7), ...each(DASH.poles, 0.2), ...each(DASH.trees, 0.4), ...each(DASH.lanterns, 0.3)])
+    case 'harbor':
+      return c([[HARBOR.lighthouse, 1.6], [HARBOR.board, 0.9], [HARBOR.crates, 1.1], [HARBOR.crane, 0.4], [HARBOR.anchor, 0.5], ...each(HARBOR.stalls, 1.5), ...each(HARBOR.lamps, 0.25)])
+    case 'workshop':
+      return c([[WORKSHOP.shed, 1.8], [WORKSHOP.forge, 1.2], [WORKSHOP.anvil, 0.6], [WORKSHOP.windmill, 1.6], [WORKSHOP.grind, 0.6], [WORKSHOP.lumber, 1.0], ...each(WORKSHOP.racks, 1.2)])
+    case 'journey': {
+      const back = (q: [number, number]): [number, number] => [q[0] - CAM_DIR[0] * 1.25, q[1] - CAM_DIR[1] * 1.25]
+      return c([[JOURNEY.camp, 0.9], ...each([0, 4, 5, 6, 7, 8, 9].map((i) => back(JOURNEY.path[i])), 1.3)])
+    }
+    default:
+      return []
+  }
+}
+
+/** The island's rim radius in a direction (island-local angle, atan2(z, x)). */
+export const rimRadius = (def: IslandDef, angle: number) => makeOutline(def.radius, islandSeed(def.id))(angle)
