@@ -141,7 +141,7 @@ export default function World() {
         </Suspense>
       </ModelGuard>
       <Clouds count={lite ? 16 : mobile ? 26 : 56} night={theme === 'night'} />
-      <PilotRig night={theme === 'night'} blobShadow={!realShadows} colliders={colliders} />
+      <PilotRig night={theme === 'night'} blobShadow={!realShadows} colliders={colliders} islets={backdrop.islets} />
       <ViewOffset />
     </Canvas>
   )
@@ -406,8 +406,8 @@ const HOP = 0.14
 
 export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land'
 
-function PilotRig({ night, blobShadow, colliders }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][] }) {
-  const adventure = useMemo(() => createAdventure(colliders), [colliders])
+function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][]; islets: [number, number, number, number][] }) {
+  const adventure = useMemo(() => createAdventure(colliders, islets), [colliders, islets])
   const inAdventure = useStore((s) => s.mode === 'adventure')
   useEffect(() => (inAdventure ? attachInput() : undefined), [inAdventure])
   const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
@@ -669,6 +669,8 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
   useFrame((s) => {
     const st = state.current
     const p = pose.current
+    // feet keep pace with the ground: the Walk clip plays faster when he runs
+    if (actions.Walk) actions.Walk.timeScale = player.running ? 2.5 : 1.55
     const time = s.clock.elapsedTime
     if (!st.current) {
       play('Idle')

@@ -1,3 +1,5 @@
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FACE_YAW, groundY, type IslandDef } from '../layout'
 import { canvasTexture } from './kit'
@@ -138,6 +140,68 @@ export function Board({ tex, w, h, y, posts = true, wood = '#8a5a3b' }: { tex: T
           <mesh key={s} position={[s * (w / 2 - 0.08), (y - h / 2) / 2, -0.07]} castShadow>
             <boxGeometry args={[0.1, y - h / 2, 0.1]} />
             <meshLambertMaterial color="#5f402b" />
+          </mesh>
+        ))}
+    </group>
+  )
+}
+
+
+/**
+ * A campfire flame: three soft sheets of fire drawn by a small shader (flickering edges, white-hot core fading to
+ * red), plus sparks drifting up. Sits with its base at the origin.
+ */
+export function Fire({ scale = 1, sparks = true }: { scale?: number; sparks?: boolean }) {
+  const mat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        uniforms: { uTime: { value: 0 } },
+        vertexShader: `uniform float uTime; varying vec2 vUv;
+          void main() { vUv = uv; vec3 p = position;
+            float h = uv.y; p.x += sin(uTime * 7.0 + h * 6.0 + position.z * 9.0) * 0.07 * h; p.x += sin(uTime * 13.0 + h * 11.0) * 0.03 * h;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+        fragmentShader: `uniform float uTime; varying vec2 vUv;
+          float n(vec2 p) { return sin(p.x * 9.0 + uTime * 5.0) * sin(p.y * 7.0 - uTime * 9.0) * 0.5 + 0.5; }
+          void main() { float x = abs(vUv.x - 0.5) * 2.0, y = vUv.y;
+            float width = (1.0 - y) * (0.55 + 0.45 * y) + 0.12 * n(vUv * 1.7) * y;   // teardrop that licks about
+            float body = smoothstep(width, width * 0.35, x) * smoothstep(1.0, 0.75, y + 0.18 * n(vUv * 2.3));
+            vec3 col = mix(vec3(1.0, 0.25, 0.05), vec3(1.0, 0.72, 0.18), smoothstep(0.75, 0.2, y + x * 0.5));
+            col = mix(col, vec3(1.0, 0.97, 0.8), smoothstep(0.45, 0.0, y + x) );
+            gl_FragColor = vec4(col * body * 1.25, body); }`,
+      }),
+    [],
+  )
+  const embers = useRef<(THREE.Mesh | null)[]>([])
+  useFrame((s) => {
+    const t = s.clock.elapsedTime
+    mat.uniforms.uTime.value = t
+    embers.current.forEach((m, i) => {
+      if (!m) return
+      const f = (t * (0.35 + (i % 3) * 0.08) + i * 0.37) % 1
+      m.position.set(Math.sin(t * 2 + i * 2.1) * 0.12 * (1 + f * 2), 0.3 + f * 1.5, Math.cos(t * 1.6 + i * 1.3) * 0.12 * (1 + f * 2))
+      m.scale.setScalar(1 - f)
+    })
+  })
+  return (
+    <group scale={scale}>
+      {[0, Math.PI / 3, (2 * Math.PI) / 3].map((r, i) => (
+        <mesh key={i} material={mat} rotation={[0, r, 0]} position={[0, 0.45, 0]} renderOrder={4}>
+          <planeGeometry args={[0.75, 0.95, 4, 8]} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.07, 0]}>
+        <sphereGeometry args={[0.2, 8, 6]} />
+        <meshBasicMaterial color="#ff7a2a" toneMapped={false} />
+      </mesh>
+      {sparks &&
+        [0, 1, 2, 3, 4].map((i) => (
+          <mesh key={i} ref={(el) => void (embers.current[i] = el)}>
+            <sphereGeometry args={[0.03, 5, 4]} />
+            <meshBasicMaterial color="#ffc36b" toneMapped={false} />
           </mesh>
         ))}
     </group>

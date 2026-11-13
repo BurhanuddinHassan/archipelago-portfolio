@@ -55,7 +55,7 @@ function chest(open: boolean, full: boolean) {
 /** Chest lid, hinged along its back edge (the hinge is at the origin). */
 function lid() {
   const p: THREE.BufferGeometry[] = []
-  p.push(cyl(0.3, 0.3, 0.9, C.woodLight, [0, 0, 0.3], [0, 0, Math.PI / 2], 12))
+  p.push(cyl(0.3, 0.3, 0.86, C.woodLight, [0, 0, 0.3], [0, 0, Math.PI / 2], 12)) // a touch shorter than the box, so the end caps don't flicker against its sides
   for (const x of [-0.38, 0, 0.38]) p.push(cyl(0.31, 0.31, 0.07, BRASS, [x, 0, 0.3], [0, 0, Math.PI / 2], 12))
   return merge(p)
 }

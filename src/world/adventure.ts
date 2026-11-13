@@ -15,9 +15,9 @@ import { readInput } from './input'
 type Circle = [number, number, number]
 type Hop = { from: THREE.Vector3; to: THREE.Vector3; t: number; then: 'foot' | 'ship'; island: number }
 
-const WALK = 4.2, RUN = 7.2, JUMP = 7.5, GRAVITY = 22, BODY = 0.38
+const WALK = 2.7, RUN = 5.2, JUMP = 7.5, GRAVITY = 22, BODY = 0.38
 const SHIP_SPEED = 12, SHIP_BOOST = 1.7, SHIP_TURN = 1.7, SHIP_GAP = 1.9, HOVER = 0.9
-const BOARD_REACH = 4.6, LAND_REACH = 5.0, WORLD_EDGE = 92, HOP_TIME = 0.55
+const BOARD_REACH = 5.5, LAND_REACH = 5.0, WORLD_EDGE = 92, HOP_TIME = 0.55
 const MOOR_YAW = Math.atan2(MOOR_DIR[0], MOOR_DIR[1])
 
 const lerpAngle = (a: number, b: number, k: number) => {
@@ -54,7 +54,9 @@ export type AdventureCtx = {
 
 export type AdventureOut = { pose: 'ground' | 'walk' | 'board' | 'sail' | 'land'; sailing: boolean; onShip: boolean }
 
-export function createAdventure(colliders: Circle[][]) {
+export function createAdventure(colliders: Circle[][], islets: [number, number, number, number][] = []) {
+  /** Where the ship drifts to after a landing: tucked against the rim, so it is always in reach to board again. */
+  let dock: THREE.Vector3 | null = null
   const pos = new THREE.Vector3(), shipPos = new THREE.Vector3(), seat = new THREE.Vector3(), tmp = new THREE.Vector3(), camTarget = new THREE.Vector3()
   const s = { ready: false, on: 'foot' as 'foot' | 'ship', island: 0, yaw: 0, vy: 0, air: false, shipYaw: MOOR_YAW, shipSpeed: 0, camYaw: 0.62, camPitch: 1.12, camDist: 9, lastLook: -10, hop: null as Hop | null, key: '' }
   const centre = (i: number) => ISLANDS[i].position
@@ -132,6 +134,12 @@ export function createAdventure(colliders: Circle[][]) {
     s.camYaw -= look
     s.camPitch = Math.min(1.42, Math.max(0.45, s.camPitch - tilt))
 
+    // ---- the info card is open: everything else waits; F, Esc or B closes it
+    if (store.advRead) {
+      if (input.read || input.exit) useStore.setState({ advRead: null })
+      input.mx = input.my = 0
+      input.jump = input.act = input.read = input.exit = false
+    }
     if (input.exit) {
       store.setMode('tour')
       return { pose: 'ground', sailing: false, onShip: s.on === 'ship' }
@@ -195,9 +203,11 @@ export function createAdventure(colliders: Circle[][]) {
         act = 'Board the ship'
         if (input.act) s.hop = { from: pos.clone(), to: new THREE.Vector3(), t: 0, then: 'ship', island: s.island }
       }
-      if (input.read && stop) {
-        store.setMode('tour', stop.id)
-        return { pose, sailing: false, onShip: false }
+      if (input.read && stop) useStore.setState({ advRead: stop.id })
+      player.running = moving && input.run
+      if (dock) {
+        shipPos.lerp(dock, 1 - Math.exp(-dt * 1.6))
+        s.shipYaw = lerpAngle(s.shipYaw, Math.atan2(-(dock.z - centre(s.island)[2]), dock.x - centre(s.island)[0]), 1 - Math.exp(-dt * 1.6))
       }
     } else {
       // ---- sailing: W/S throttle, A/D steer; the ship rides at the height of whichever island it is near
@@ -221,6 +231,15 @@ export function createAdventure(colliders: Circle[][]) {
         wy += w * (centre(i)[1] + 0.6 + HOVER)
         wsum += w
       })
+      // the small islets between the islands are solid too (unless the ship is well above or below one)
+      for (const [ix, iy, iz, ir] of islets) {
+        const dx = shipPos.x - ix, dz = shipPos.z - iz, dist = Math.hypot(dx, dz), min = ir * 1.12 + SHIP_GAP * 0.8
+        if (dist < min && dist > 0.001 && shipPos.y - iy < 4 && shipPos.y - iy > -ir * 2.4) {
+          shipPos.x = ix + (dx / dist) * min
+          shipPos.z = iz + (dz / dist) * min
+        }
+      }
+      dock = null
       const out = Math.hypot(shipPos.x, shipPos.z)
       if (out > WORLD_EDGE) {
         shipPos.x *= WORLD_EDGE / out
@@ -238,6 +257,8 @@ export function createAdventure(colliders: Circle[][]) {
           const [tx, tz] = resolve(i, Math.cos(ang) * r, Math.sin(ang) * r)
           s.hop = { from: new THREE.Vector3(), to: new THREE.Vector3(centre(i)[0] + tx, floor(i, tx, tz), centre(i)[2] + tz), t: 0, then: 'foot', island: i }
           s.shipSpeed = 0
+          const dr = rimRadius(ISLANDS[i], ang) + SHIP_GAP
+          dock = new THREE.Vector3(centre(i)[0] + Math.cos(ang) * dr, centre(i)[1] + 0.6 + HOVER, centre(i)[2] + Math.sin(ang) * dr)
           s.yaw = Math.atan2(-lx, -lz) // face inland
         }
       } else if (near.gap < LAND_REACH) tip = 'Slow down to land'

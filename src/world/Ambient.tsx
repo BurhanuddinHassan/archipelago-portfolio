@@ -37,7 +37,7 @@ function makeFree() {
 
 /* ---------------- Backdrop islands ---------------- */
 
-export type Backdrop = { geometry: THREE.BufferGeometry; placements: Placement[] }
+export type Backdrop = { geometry: THREE.BufferGeometry; placements: Placement[]; islets: [number, number, number, number][] }
 
 /** Far islands in a wide ring (they fade into the fog) plus small islets in the gaps between the main islands. */
 export function buildBackdrop(mobile: boolean): Backdrop {
@@ -45,7 +45,9 @@ export function buildBackdrop(mobile: boolean): Backdrop {
   const free = makeFree()
   const parts: THREE.BufferGeometry[] = []
   const placements: Placement[] = []
+  const islets: [number, number, number, number][] = []
   const add = (x: number, y: number, z: number, radius: number, seed: number, far: boolean) => {
+    islets.push([x, y, z, radius])
     const flora = (['leafy', 'pine', 'mixed'] as const)[seed % 3]
     const isl = buildIsland({ radius, seed, top: 0.6, flora, density: far ? 0.45 : 0.8, segments: far ? 40 : 56, treesOnly: far })
     isl.geometry.translate(x, y, z)
@@ -69,7 +71,7 @@ export function buildBackdrop(mobile: boolean): Backdrop {
   }
   const geometry = mergeGeometries(parts, false)!
   geometry.computeBoundingSphere()
-  return { geometry, placements }
+  return { geometry, placements, islets }
 }
 
 /* ---------------- Clouds ---------------- */

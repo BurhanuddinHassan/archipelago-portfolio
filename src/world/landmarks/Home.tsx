@@ -6,7 +6,7 @@ import { FACE_YAW, HOME_PIECES, groundY, type IslandDef } from '../layout'
 import { profile } from '../../content'
 import { shadowTexture } from '../Ambient'
 import { C, blob, box, canvasTexture, cone, cyl, disc, hex, merge, prism, sphere, torus } from './kit'
-import { Board, labelTex, pathRibbon, placer } from './parts'
+import { Board, Fire, labelTex, pathRibbon, placer } from './parts'
 import { At } from './Chrono'
 
 /**
@@ -461,7 +461,6 @@ function campfire() {
   p.push(cyl(0.02, 0.02, 1.0, IRONH, [-0.55, 0.5, -0.4], [0, 0, -0.25], 4), cyl(0.02, 0.02, 0.6, IRONH, [-0.2, 0.98, -0.4], [0, 0, Math.PI / 2 - 0.2], 4), sphere(0.13, IRONH, [0.05, 0.75, -0.4], 8))
   return merge(p)
 }
-const flameGeo = () => merge([cone(0.24, 0.6, hex('#ff8a3c'), [0, 0.3, 0], undefined, 6), cone(0.13, 0.4, C.yellow, [0.03, 0.22, 0.02], undefined, 6)])
 
 /** An open-air studio: where the games get made. Desk, two screens, a chair, shelves, under a pergola. */
 function studio(accent: THREE.Color) {
@@ -507,14 +506,9 @@ function Extras({ def, night }: { def: IslandDef; night: boolean }) {
     glow.push(put(pr.glow, h.projector, Math.PI * 0.82), put(pi.glow, h.picnic, 0.5), put(st.glow, h.studio, -0.25))
     // signpost: a post with three arrow planks
     p.push(put(merge([cyl(0.07, 0.09, 2.9, C.woodDark, [0, 1.45, 0], undefined, 6), sphere(0.11, C.gold, [0, 2.95, 0], 6)]), h.signpost))
-    return { paths, body: merge(p), glow: merge(glow), flame: flameGeo() }
+    return { paths, body: merge(p), glow: merge(glow) }
   }, [def, h])
   const signs = useMemo(() => [labelTex('SCROLL DOWN', 'Project islands', '#F26B3A', 512, 150), labelTex('FURTHER ON', 'Skills · Journey', '#B07A45', 512, 150), labelTex('ON THIS ISLE', 'Trailer · Contact', '#3E6E8E', 512, 150)], [])
-  const flame = useRef<THREE.Mesh>(null)
-  useFrame((s) => {
-    const t = s.clock.elapsedTime
-    if (flame.current) flame.current.scale.set(1 + Math.sin(t * 11) * 0.12, 1 + Math.sin(t * 7) * 0.2, 1 + Math.cos(t * 9) * 0.12)
-  })
   return (
     <>
       {g.paths.map((geo, i) => (
@@ -534,9 +528,7 @@ function Extras({ def, night }: { def: IslandDef; night: boolean }) {
         ))}
       </At>
       <At def={def} xz={h.campfire} turn={0.4}>
-        <mesh ref={flame} geometry={g.flame} position={[0, 0.1, 0]}>
-          <meshBasicMaterial vertexColors toneMapped={false} />
-        </mesh>
+        <Fire scale={1.25} />
         {night && <pointLight position={[0, 0.8, 0]} color="#ff9a4a" intensity={5} distance={7} />}
       </At>
     </>

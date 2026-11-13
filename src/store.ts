@@ -11,6 +11,8 @@ type State = {
   /** tour = driven by scrolling; adventure = you walk and sail yourself */
   mode: 'tour' | 'adventure'
   adv: AdvHud | null
+  /** Adventure Mode: the stop whose info card is open (F), if any. */
+  advRead: string | null
   /** Switch mode. Leaving Adventure Mode with a stop id scrolls the tour to that stop. */
   setMode: (mode: 'tour' | 'adventure', stop?: string) => void
   /** Continuous tour position: 0 = first stop, 1 = second stop, … */
@@ -45,9 +47,10 @@ const savedGraphics = (): Graphics => {
 export const useStore = create<State>((set, get) => ({
   mode: 'tour',
   adv: null,
+  advRead: null,
   setMode: (mode, stop) => {
     if (mode === get().mode) return
-    set({ mode, adv: null })
+    set({ mode, adv: null, advRead: null })
     if (mode === 'tour' && stop) window.setTimeout(() => document.getElementById(stop)?.scrollIntoView(), 60)
   },
   progress: 0,

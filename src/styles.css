@@ -347,3 +347,10 @@ button.adv-prompt:hover { background: var(--brand); color: #fff; }
 .adv-controls { position: absolute; left: 18px; bottom: 18px; margin: 0; padding: 12px 14px; list-style: none; display: grid; gap: 6px; background: var(--glass-solid, var(--panel)); border-radius: 14px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12); }
 .adv-hud kbd { display: inline-block; min-width: 1.7em; text-align: center; font: 600 0.78rem Inter, sans-serif; padding: 2px 7px; margin-right: 6px; border-radius: 6px; background: var(--text); color: var(--bg, #fff); }
 .topbar .btn.small.on { background: var(--brand); color: var(--brand-ink); border-color: var(--brand); }
+
+.adv-hud kbd { color: var(--panel); }
+.adv-card-wrap { position: absolute; inset: 0; pointer-events: auto; display: grid; place-items: center; padding: calc(var(--top-h) + 16px) 16px 16px; background: rgba(20, 18, 28, 0.38); backdrop-filter: blur(3px); animation: adv-fade 0.18s ease-out; }
+.adv-card { position: relative; width: min(720px, 100%); max-height: 100%; overflow-y: auto; overscroll-behavior: contain; border-top: 5px solid var(--accent); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35); animation: adv-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+.adv-card-close { position: sticky; top: 0; float: right; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font-size: 0.95rem; }
+@keyframes adv-fade { from { opacity: 0; } }
+@keyframes adv-pop { from { opacity: 0; transform: translateY(14px) scale(0.97); } }

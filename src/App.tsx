@@ -2,6 +2,7 @@ import Echo from './tour/Echo'
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { STOPS } from './world/layout'
 import { Section, stopContent } from './tour/Sections'
+import { islandById } from './world/layout'
 import { useStore } from './store'
 import { profile } from './content'
 
@@ -149,29 +150,43 @@ function TopBar() {
 /** Adventure Mode overlay: where you are, what the buttons do right now, and the controls for the device in use. */
 function AdventureHud() {
   const adv = useStore((s) => s.adv)
-  const setMode = useStore((s) => s.setMode)
   const pad = adv?.pad ?? false
   const sailing = adv?.ship ?? false
   const key = (k: string, p: string) => <kbd>{pad ? p : k}</kbd>
   const controls: [string, string, string][] = sailing
-    ? [['W S', 'Left stick', 'Speed'], ['A D', 'Left stick', 'Steer'], ['Shift', 'RT', 'Boost'], ['Drag / arrows', 'Right stick', 'Look']]
-    : [['W A S D', 'Left stick', 'Walk'], ['Shift', 'RT', 'Run'], ['Space', 'A', 'Jump'], ['Drag / arrows', 'Right stick', 'Look']]
+    ? [['W S', 'Left stick', 'Speed'], ['A D', 'Left stick', 'Steer'], ['Shift', 'RT / R2', 'Boost'], ['Drag / arrows', 'Right stick', 'Look']]
+    : [['W A S D', 'Left stick', 'Walk'], ['Shift', 'RT / R2', 'Run'], ['Space', 'A / ✕', 'Jump'], ['Drag / arrows', 'Right stick', 'Look']]
+  // controller buttons are named for both Xbox and PlayStation pads: the same physical button on each
+  const reading = useStore((s) => s.advRead)
+  const closeCard = () => useStore.setState({ advRead: null })
+  const card = reading ? stopContent(reading) : null
   return (
     <div className="adv-hud" role="status" aria-live="polite">
       <div className="adv-place">{adv?.place ?? 'Adventure Mode'}</div>
       <div className="adv-prompts">
         {adv?.act && (
           <div className="adv-prompt">
-            {key('E', 'X')} {adv.act}
+            {key('E', 'X / □')} {adv.act}
           </div>
         )}
         {adv?.tip && <div className="adv-prompt">{adv.tip}</div>}
         {adv?.read && (
-          <button className="adv-prompt" onClick={() => setMode('tour', adv.read!)}>
-            {key('F', 'Y')} Read about this place
+          <button className="adv-prompt" onClick={() => useStore.setState({ advRead: reading ? null : adv.read })}>
+            {key('F', 'Y / △')} {reading ? 'Close' : 'Read about this place'}
           </button>
         )}
       </div>
+      {reading && card && (
+        <div className="adv-card-wrap" onClick={closeCard}>
+          <article className="adv-card panel" style={{ '--accent': card.accent ?? islandById(STOPS.find((s) => s.id === reading)!.island).accent } as React.CSSProperties} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="About this place">
+            <button className="adv-card-close" onClick={closeCard} aria-label="Close">
+              ✕
+            </button>
+            {card.eyebrow && <p className="eyebrow">{card.eyebrow}</p>}
+            {card.body}
+          </article>
+        </div>
+      )}
       <ul className="adv-controls">
         {controls.map(([k, p, what]) => (
           <li key={what}>
@@ -179,7 +194,7 @@ function AdventureHud() {
           </li>
         ))}
         <li>
-          {key('Esc', 'B')} Back to the tour
+          {key('Esc', 'B / ○')} Back to the tour
         </li>
       </ul>
     </div>

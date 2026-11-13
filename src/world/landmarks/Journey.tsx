@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { FACE_YAW, JOURNEY, groundY, type IslandDef } from '../layout'
 import { At, Body, Glow } from './Chrono'
 import { C, beam, blob, box, cone, cyl, hex, merge, prism, sphere, torus } from './kit'
-import { Board, labelTex, pathRibbon } from './parts'
+import { Board, Fire, labelTex, pathRibbon } from './parts'
 
 /**
  * Journey Isle: a footpath of milestones in the order they happened, each with a sign and a small object,
@@ -122,11 +122,11 @@ export function Journey({ def, night, simple }: { def: IslandDef; night: boolean
     const pieces: Piece[] = [books(), gate(), easel(), trophy(), servers(), certificates(), bugHunt(), banner(hex('#3E6E8E'))]
     // the gate straddles the path; everything else stands just behind its point on the path
     const t = new THREE.Vector3(JOURNEY.path[3][0] - JOURNEY.path[1][0], 0, JOURNEY.path[3][1] - JOURNEY.path[1][1]).normalize()
-    return { path, pieces, camp: camp(accent), gateYaw: Math.atan2(t.x, t.z), flame: merge([cone(0.2, 0.55, hex('#ff8a3c'), [0, 0.28, 0], undefined, 6), cone(0.11, 0.36, C.yellow, [0.03, 0.2, 0.02], undefined, 6)]) }
+    return { path, pieces, camp: camp(accent), gateYaw: Math.atan2(t.x, t.z) }
   }, [def, accent])
 
   const centre = useMemo(() => new THREE.Vector3(...def.position), [def])
-  const lantern = useRef<THREE.Group>(null), flame = useRef<THREE.Mesh>(null), flag = useRef<THREE.Mesh>(null)
+  const lantern = useRef<THREE.Group>(null), flag = useRef<THREE.Mesh>(null)
   const tmp = useMemo(() => new THREE.Vector3(), [])
   useFrame((state) => {
     if (state.camera.position.distanceTo(centre) > 80) return
@@ -138,7 +138,6 @@ export function Journey({ def, night, simple }: { def: IslandDef; night: boolean
       g.path.curve.getPointAt(travel > n ? 1 : u, tmp)
       lantern.current.position.set(tmp.x, groundY(def, tmp.x, tmp.z) + 0.75 + Math.sin(t * 3) * 0.06, tmp.z)
     }
-    if (flame.current) flame.current.scale.set(1 + Math.sin(t * 11) * 0.12, 1 + Math.sin(t * 7) * 0.2, 1 + Math.cos(t * 9) * 0.12)
     if (flag.current) flag.current.rotation.y = Math.sin(t * 2) * 0.25
   })
 
@@ -181,9 +180,9 @@ export function Journey({ def, night, simple }: { def: IslandDef; night: boolean
       })}
       <At def={def} xz={JOURNEY.camp} turn={0.2} scale={1.15}>
         <Body g={g.camp.body} />
-        <mesh ref={flame} geometry={g.flame} position={[0.9, 0.1, 0.5]}>
-          <meshBasicMaterial vertexColors toneMapped={false} />
-        </mesh>
+        <group position={[0.9, 0.05, 0.5]}>
+          <Fire sparks={!simple} />
+        </group>
         <mesh ref={flag} position={[-2.3, 2.7, 0.6]}>
           <boxGeometry args={[0.7, 0.42, 0.02]} />
           <meshLambertMaterial color="#f8f5ee" />
