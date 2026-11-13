@@ -354,3 +354,14 @@ button.adv-prompt:hover { background: var(--brand); color: #fff; }
 .adv-card-close { position: sticky; top: 0; float: right; z-index: 2; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; font-size: 0.95rem; }
 @keyframes adv-fade { from { opacity: 0; } }
 @keyframes adv-pop { from { opacity: 0; transform: translateY(14px) scale(0.97); } }
+
+/* ---------- ?film: clean frames for screen recording (promo video) ---------- */
+html.film .topbar, html.film .rail, html.film .drag-hint, html.film .echo, html.film .echo-panel, html.film .toast,
+html.film .mobile-notice, html.film .adv-hud, html.film .island-label, html.film .arcade-tip { display: none !important; }
+html.film .tour { visibility: hidden; }
+html.film, html.film body { scrollbar-width: none; }
+html.film::-webkit-scrollbar, html.film body::-webkit-scrollbar { display: none; }
+html.film .world canvas { cursor: none !important; }
+
+.adv-score { position: absolute; top: calc(var(--top-h) + 14px); right: 18px; display: flex; gap: 14px; font-weight: 600; background: var(--glass-solid, var(--panel)); padding: 6px 14px; border-radius: 999px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14); }
+html.film .adv-score { display: none; }

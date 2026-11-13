@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { STOPS } from './world/layout'
 import { Section, stopContent } from './tour/Sections'
 import { islandById } from './world/layout'
+import { GEARS_PER_ISLAND, ISLAND_COUNT, usePlay } from './world/play'
 import { useStore } from './store'
 import { profile } from './content'
 
@@ -61,6 +62,28 @@ export default function App() {
     document.documentElement.dataset.theme = theme
   }, [theme])
   const mode = useStore((s) => s.mode)
+  // ?film: every piece of UI is hidden so the 3D scene can be screen-recorded clean (promo video footage).
+  // Scrolling still drives the tour; Adventure Mode is toggled with the P key or a controller's Start button.
+  const film = useMemo(() => new URLSearchParams(window.location.search).has('film'), [])
+  useEffect(() => {
+    document.documentElement.classList.toggle('film', film)
+    if (!film) return
+    const go = (e: KeyboardEvent) => e.code === 'KeyP' && useStore.getState().setMode(useStore.getState().mode === 'adventure' ? 'tour' : 'adventure')
+    let raf = 0, was = false
+    const poll = () => {
+      const pad = [...(navigator.getGamepads?.() ?? [])].find((p) => p?.connected)
+      const start = !!pad?.buttons[9]?.pressed
+      if (start && !was) useStore.getState().setMode(useStore.getState().mode === 'adventure' ? 'tour' : 'adventure')
+      was = start
+      raf = requestAnimationFrame(poll)
+    }
+    window.addEventListener('keydown', go)
+    raf = requestAnimationFrame(poll)
+    return () => {
+      window.removeEventListener('keydown', go)
+      cancelAnimationFrame(raf)
+    }
+  }, [film])
   useEffect(() => {
     // Adventure Mode: the page stops scrolling and the tour text steps aside
     document.documentElement.classList.toggle('adventure', mode === 'adventure')
@@ -124,7 +147,7 @@ function TopBar() {
             if (mode === 'adventure') return setMode('tour')
             if (window.matchMedia('(max-width: 820px)').matches) return showToast('Adventure Mode needs a keyboard or a controller. Try it on a laptop.')
             setMode('adventure')
-            showToast('Adventure Mode: walk with WASD, press E at the ship to sail.')
+            showToast('Adventure Mode: find 5 golden gears and earn a stamp on every island. Press E at the ship to sail.')
           }}
         >
           <span className="long">{mode === 'adventure' ? 'Back to the tour' : 'Explore freely'}</span>
@@ -158,11 +181,16 @@ function AdventureHud() {
     : [['W A S D', 'Left stick', 'Walk'], ['Shift', 'RT / R2', 'Run'], ['Space', 'A / ✕', 'Jump'], ['Drag / arrows', 'Right stick', 'Look']]
   // controller buttons are named for both Xbox and PlayStation pads: the same physical button on each
   const reading = useStore((s) => s.advRead)
+  const gears = usePlay((s) => s.gears.length), stamps = usePlay((s) => s.stamps.length)
   const closeCard = () => useStore.setState({ advRead: null })
   const card = reading ? stopContent(reading) : null
   return (
     <div className="adv-hud" role="status" aria-live="polite">
       <div className="adv-place">{adv?.place ?? 'Adventure Mode'}</div>
+      <div className="adv-score" title="Golden gears found, and island stamps earned">
+        <span>⚙ {gears} / {GEARS_PER_ISLAND * ISLAND_COUNT}</span>
+        <span>★ {stamps} / {ISLAND_COUNT}</span>
+      </div>
       <div className="adv-prompts">
         {adv?.act && (
           <div className="adv-prompt">

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { FACE_YAW, MERGE, MOOR_DIR, groundY, type IslandDef } from '../layout'
 import { At, Body, Glow, ell } from './Chrono'
+import { game } from '../play'
 import { C, blob, box, cone, cyl, hex, merge, sphere, torus } from './kit'
 
 /**
@@ -414,7 +415,13 @@ export function MergeDefence({ def, night, simple }: { def: IslandDef; night: bo
       Object.assign(fx, { t: 0, x: mob.x, y: ty, z: mob.z })
     })
 
-    // ---- power-ups: a full meter starts the next one in the cycle
+    // ---- power-ups: a full meter starts the next one in the cycle (or the player triggers one at its shrine)
+    if (game.mergePower >= 0) {
+      s.power = game.mergePower
+      s.powerLeft = POWER_TIME
+      s.charge = 0
+      game.mergePower = -1
+    }
     if (s.power >= 0) {
       s.powerLeft -= dt
       if (s.powerLeft <= 0) s.power = -1

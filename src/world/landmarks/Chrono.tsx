@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CHRONO, FACE_YAW, groundY, type IslandDef } from '../layout'
 import { player } from '../player'
+import { caught } from '../play'
 import { C, beam, blob, box, canvasTexture, cone, cyl, hex, merge, paint, sphere, torus } from './kit'
 
 /**
@@ -382,6 +383,7 @@ function Soldier({ def, near }: { def: IslandDef; near: React.MutableRefObject<b
         else if (dist < 2.3) {
           st.mode = 'attack'
           st.timer = 1.3
+          caught(def.id) // Adventure Mode: the player is sent back to where he landed
         } else walkTo(px, pz, RUN)
         break
       case 'attack':

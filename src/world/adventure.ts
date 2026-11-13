@@ -5,6 +5,7 @@ import { SEAT } from './SkyShip'
 import { player } from './player'
 import { useStore } from '../store'
 import { readInput } from './input'
+import { game, spotNear } from './play'
 
 /**
  * Adventure Mode: the Pilot is driven directly instead of by scrolling.
@@ -52,7 +53,7 @@ export type AdventureCtx = {
   start: { stand: THREE.Vector3; moor: THREE.Vector3; island: string }
 }
 
-export type AdventureOut = { pose: 'ground' | 'walk' | 'board' | 'sail' | 'land'; sailing: boolean; onShip: boolean }
+export type AdventureOut = { pose: 'ground' | 'walk' | 'board' | 'sail' | 'land' | 'cheer' | 'sit'; sailing: boolean; onShip: boolean }
 
 export function createAdventure(colliders: Circle[][], islets: [number, number, number, number][] = []) {
   /** Where the ship drifts to after a landing: tucked against the rim, so it is always in reach to board again. */
@@ -169,6 +170,10 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
       }
     } else if (s.on === 'foot') {
       // ---- walking: move relative to the camera, slide along anything solid
+      if (game.teleport) {
+        if (game.teleport.island === def.id) pos.set(centre(s.island)[0] + game.teleport.xz[0], pos.y, centre(s.island)[2] + game.teleport.xz[1])
+        game.teleport = null
+      }
       let [lx, lz] = local(s.island, pos)
       const moving = Math.hypot(input.mx, input.my) > 0.05
       if (moving) {
@@ -199,9 +204,23 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
       // what can he do here?
       const stop = STOPS.filter((st) => st.island === def.id).sort((a, b) => Math.hypot(a.offset[0] - lx, a.offset[1] - lz) - Math.hypot(b.offset[0] - lx, b.offset[1] - lz))[0]
       if (stop) read = stop.id
-      if (Math.hypot(pos.x - shipPos.x, pos.z - shipPos.z) < BOARD_REACH) {
+      // an emote (sitting by a fire, cheering) holds until he moves or it runs out
+      if (game.emote) {
+        game.emote.left -= dt
+        if (moving || s.air || game.emote.left <= 0) game.emote = null
+        else pose = game.emote.pose
+      }
+      // the action button: whichever is nearer, something to do here or the ship
+      const shipDist = Math.hypot(pos.x - shipPos.x, pos.z - shipPos.z), near = spotNear(def.id, lx, lz)
+      if (near && !(shipDist < BOARD_REACH && shipDist < near.dist)) {
+        act = near.label
+        if (input.act) near.spot.use()
+      } else if (shipDist < BOARD_REACH) {
         act = 'Board the ship'
-        if (input.act) s.hop = { from: pos.clone(), to: new THREE.Vector3(), t: 0, then: 'ship', island: s.island }
+        if (input.act) {
+          game.emote = null
+          s.hop = { from: pos.clone(), to: new THREE.Vector3(), t: 0, then: 'ship', island: s.island }
+        }
       }
       if (input.read && stop) useStore.setState({ advRead: stop.id })
       player.running = moving && input.run

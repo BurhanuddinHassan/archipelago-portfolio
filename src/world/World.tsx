@@ -10,6 +10,8 @@ import { buildIsland, type Placement, type PropKind } from './islandGen'
 import { SEAT, SkyShip } from './SkyShip'
 import { HomeLandmarks } from './landmarks/Home'
 import { IslandLandmark } from './landmarks/Islands'
+import { Fun, Gears } from './landmarks/Fun'
+import { gearSpots } from './play'
 import { Balloons, Birds, BlobShadows, Butterflies, Clouds, Fireflies, NightSky, Waterfalls, WindStreaks, buildBackdrop, shadowTexture } from './Ambient'
 import { makeIslandMaterial } from './islandMaterial'
 import { useStore } from '../store'
@@ -24,6 +26,9 @@ const PALETTE = {
 
 /** Must match --panel-w in styles.css: clamp(440px, 44vw, 760px). */
 export const panelWidth = (w: number) => Math.min(760, Math.max(440, w * 0.44))
+
+/** ?film: clean frames for screen recording, no floating labels. */
+const FILM = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('film')
 
 const isMobile = () => typeof window !== 'undefined' && window.matchMedia('(max-width: 820px)').matches
 
@@ -95,6 +100,7 @@ export default function World() {
   // the Pilot, the ship); phones get cheap soft blobs; lite mode gets none.
   const realShadows = !lite && !mobile
   const colliders = useMemo(() => buildColliders(Object.fromEntries(islands.map(({ def, placements }) => [def.id, placements]))), [islands])
+  const gearAt = useMemo(() => ISLANDS.map((def, i) => gearSpots(def, colliders[i])), [colliders])
   return (
     <Canvas
       dpr={liveDpr}
@@ -119,8 +125,8 @@ export default function World() {
       <fog attach="fog" args={[c.horizon, 70, 240]} />
       <hemisphereLight args={[c.hemiSky, c.hemiGround, c.hemi]} />
       <Sun intensity={c.sun} color={c.sunColor} island={activeIsland} shadows={realShadows} />
-      {islands.map(({ def, geometry }) => (
-        <Island key={def.id} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} simple={lite || mobile} />
+      {islands.map(({ def, geometry }, i) => (
+        <Island key={def.id} gears={gearAt[i]} def={def} geometry={geometry} material={islandMaterial} night={theme === 'night'} labels={!mobile} simple={lite || mobile} />
       ))}
       <mesh geometry={backdrop.geometry} material={islandMaterial} frustumCulled={false} />
       {!lite && (
@@ -191,7 +197,8 @@ function ViewOffset() {
   const adventure = useStore((s) => s.mode === 'adventure')
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera
-    if (adventure) cam.clearViewOffset() // no text panel: the Pilot goes back to the middle of the screen
+    const film = document.documentElement.classList.contains('film')
+    if (adventure || film) cam.clearViewOffset() // no text panel: the Pilot goes back to the middle of the screen
     else if (size.width <= 820) {
       // Phone: text cards cover the lower half, so lift the picture and keep the Pilot in the top third.
       cam.setViewOffset(size.width, size.height, 0, size.height * 0.2, size.width, size.height)
@@ -206,13 +213,15 @@ function ViewOffset() {
 
 /* ---------------- Islands ---------------- */
 
-function Island({ def, geometry, material, night, labels, simple }: { def: IslandDef; geometry: THREE.BufferGeometry; material: THREE.Material; night: boolean; labels: boolean; simple: boolean }) {
+function Island({ def, geometry, material, night, labels, simple, gears }: { def: IslandDef; geometry: THREE.BufferGeometry; material: THREE.Material; night: boolean; labels: boolean; simple: boolean; gears: [number, number, number][] }) {
   const desktop = labels
   return (
     <group position={def.position}>
       <mesh geometry={geometry} material={material} receiveShadow />
       {def.id === 'home' ? <HomeLandmarks def={def} night={night} interactive={desktop} /> : <IslandLandmark def={def} night={night} simple={simple} />}
-      {labels && <IslandLabel def={def} />}
+      <Fun def={def} />
+      <Gears def={def} at={gears} />
+      {labels && !FILM && <IslandLabel def={def} />}
     </group>
   )
 }
@@ -404,7 +413,7 @@ const MOOR_YAW = Math.atan2(MOOR_DIR[0], MOOR_DIR[1])
 /** Share of each flight spent hopping aboard, and hopping off. */
 const HOP = 0.14
 
-export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land'
+export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land' | 'cheer' | 'sit'
 
 function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][]; islets: [number, number, number, number][] }) {
   const adventure = useMemo(() => createAdventure(colliders, islets), [colliders, islets])
@@ -692,6 +701,8 @@ function PilotModel({ pose }: { pose: React.MutableRefObject<PilotPose> }) {
       if (p === 'board' || p === 'sail') play('Sit')
       else if (p === 'land') play('Idle')
       else if (p === 'walk') play('Walk')
+      else if (p === 'cheer') play('Cheer')
+      else if (p === 'sit') play('Sit')
       else play(st.lastPose === 'land' ? 'Wave' : 'Idle') // just stepped off the ship: wave hello
       st.lastPose = p
       st.nextFidget = time + 10 + Math.random() * 6
