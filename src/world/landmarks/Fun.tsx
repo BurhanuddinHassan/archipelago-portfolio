@@ -5,6 +5,7 @@ import { CHRONO, DASH, HARBOR, HOME_PIECES, JOURNEY, MERGE, SMILE, SUNK, WORKSHO
 import { player } from '../player'
 import { GEARS_PER_ISLAND, addSpots, emote, game, onCaught, usePlay, type Spot } from '../play'
 import { useStore } from '../../store'
+import { sfx } from '../../audio'
 import { profile } from '../../content'
 import { C, box, gear, hex, merge } from './kit'
 
@@ -176,6 +177,7 @@ function HarborFun({ def }: { def: IslandDef }) {
       use: () => {
         if (fishing.current) return
         fishing.current = true
+        sfx('splash')
         window.setTimeout(() => {
           if (!fishing.current) return
           fishing.current = false
@@ -193,6 +195,7 @@ function WorkshopFun({ def }: { def: IslandDef }) {
     {
       xz: WORKSHOP.anvil, reach: 2.0, label: () => `Strike the anvil (${hits.current}/5)`,
       use: () => {
+        sfx('clank')
         if (++hits.current < 5) return
         hits.current = 0
         emote('cheer')

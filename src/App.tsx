@@ -4,6 +4,7 @@ import { STOPS } from './world/layout'
 import { Section, stopContent } from './tour/Sections'
 import { islandById } from './world/layout'
 import { GEARS_PER_ISLAND, ISLAND_COUNT, usePlay } from './world/play'
+import { initAudio, setNight } from './audio'
 import { useStore } from './store'
 import { profile } from './content'
 
@@ -60,7 +61,21 @@ export default function App() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+    setNight(theme === 'night')
   }, [theme])
+  useEffect(() => {
+    // browsers only allow sound after a real click or key press, so the audio engine starts on the first one
+    const start = () => {
+      initAudio()
+      setNight(useStore.getState().theme === 'night')
+    }
+    window.addEventListener('pointerdown', start)
+    window.addEventListener('keydown', start)
+    return () => {
+      window.removeEventListener('pointerdown', start)
+      window.removeEventListener('keydown', start)
+    }
+  }, [])
   const mode = useStore((s) => s.mode)
   // ?film: every piece of UI is hidden so the 3D scene can be screen-recorded clean (promo video footage).
   // Scrolling still drives the tour; Adventure Mode is toggled with the P key or a controller's Start button.
@@ -128,6 +143,8 @@ function TopBar() {
   const showToast = useStore((s) => s.showToast)
   const graphics = useStore((s) => s.graphics)
   const cycleGraphics = useStore((s) => s.cycleGraphics)
+  const sound = useStore((s) => s.sound)
+  const toggleSound = useStore((s) => s.toggleSound)
   const mode = useStore((s) => s.mode)
   const setMode = useStore((s) => s.setMode)
   const GFX = { auto: 'Auto', high: 'High', low: 'Low' }
@@ -161,6 +178,9 @@ function TopBar() {
         >
           <span className="long">Graphics: </span>
           {GFX[graphics]}
+        </button>
+        <button className="icon-btn" onClick={(e) => (e.currentTarget.blur(), toggleSound())} aria-label={sound ? 'Turn sound off' : 'Turn sound on'} aria-pressed={sound} title={sound ? 'Sound on' : 'Sound off'}>
+          {sound ? '🔊' : '🔇'}
         </button>
         <button className="icon-btn" onClick={toggleTheme} aria-label={theme === 'day' ? 'Switch to night' : 'Switch to day'}>
           {theme === 'day' ? '☾' : '☀'}

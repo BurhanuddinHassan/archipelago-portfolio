@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { setSoundEnabled, sfx, soundEnabled } from './audio'
 
 type Theme = 'day' | 'night'
 /** low = always lite, high = always full detail, auto = decided by the measured frame rate */
@@ -11,6 +12,9 @@ type State = {
   /** tour = driven by scrolling; adventure = you walk and sail yourself */
   mode: 'tour' | 'adventure'
   adv: AdvHud | null
+  /** Sound on or off (remembered on this device). */
+  sound: boolean
+  toggleSound: () => void
   /** Adventure Mode: the stop whose info card is open (F), if any. */
   advRead: string | null
   /** Switch mode. Leaving Adventure Mode with a stop id scrolls the tour to that stop. */
@@ -46,10 +50,17 @@ const savedGraphics = (): Graphics => {
 
 export const useStore = create<State>((set, get) => ({
   mode: 'tour',
+  sound: soundEnabled(),
+  toggleSound: () => {
+    const sound = !get().sound
+    setSoundEnabled(sound)
+    set({ sound })
+  },
   adv: null,
   advRead: null,
   setMode: (mode, stop) => {
     if (mode === get().mode) return
+    sfx('mode')
     set({ mode, adv: null, advRead: null })
     if (mode === 'tour' && stop) window.setTimeout(() => document.getElementById(stop)?.scrollIntoView(), 60)
   },

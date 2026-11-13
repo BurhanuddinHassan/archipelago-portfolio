@@ -18,6 +18,7 @@ import { useStore } from '../store'
 import { player } from './player'
 import { buildColliders, createAdventure } from './adventure'
 import { attachInput } from './input'
+import { listenAt, setShip, sfx } from '../audio'
 
 const PALETTE = {
   day: { top: '#79b4e0', horizon: '#f4e2cf', hemiSky: '#fff4e6', hemiGround: '#d8c6ae', sun: 2.4, sunColor: '#ffe3c2', hemi: 1.2 },
@@ -417,6 +418,7 @@ export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land' | 'cheer' 
 
 function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][]; islets: [number, number, number, number][] }) {
   const adventure = useMemo(() => createAdventure(colliders, islets), [colliders, islets])
+  const heard = useRef<PilotPose>('ground')
   const inAdventure = useStore((s) => s.mode === 'adventure')
   useEffect(() => (inAdventure ? attachInput() : undefined), [inAdventure])
   const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
@@ -463,6 +465,7 @@ function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; bl
       const k = Math.min(last, Math.round(p))
       const out = adventure.step({ dt: Math.min(dt, 0.1), time, camera, pilot: pl, ship: sh, drag: orbit.current, start: { stand: stands[k], moor: moors[k], island: STOPS[k].island } })
       pose.current = out.pose
+      listenAt(pl.position.x, pl.position.y, pl.position.z)
       camTarget.current.copy(pl.position)
       if (shadow.current) shadow.current.visible = blobShadow && !out.onShip
       if (propRef.current) propRef.current.rotation.z += dt * (out.sailing ? 22 : 2.5)
@@ -529,6 +532,13 @@ function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; bl
     if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
 
     // ---- ship details
+    // sound: engine while flying, a whoosh when he hops, and the campfires and waterfalls near him
+    setShip(sailing ? 0.8 : 0)
+    if (pose.current !== heard.current) {
+      if (pose.current === 'board' || pose.current === 'land') sfx('hop')
+      heard.current = pose.current
+    }
+    listenAt(pl.position.x, pl.position.y, pl.position.z)
     if (propRef.current) propRef.current.rotation.z += dt * (sailing ? 22 : 2.5)
     if (sailRef.current) sailRef.current.scale.z = 1 + Math.sin(time * 2.2) * (sailing ? 0.18 : 0.08)
     if (lanternRef.current) lanternRef.current.color.set(night ? '#ffd27a' : '#f3d9a4')

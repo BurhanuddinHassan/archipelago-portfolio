@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { STOPS, groundY, islandSeed, rimRadius, type IslandDef } from './layout'
 import { useStore } from '../store'
+import { sfx } from '../audio'
 
 /**
  * The game layer of Adventure Mode: things to do on each island.
@@ -48,6 +49,7 @@ export const usePlay = create<Play>((set, get) => {
     collect: (id) => {
       if (get().gears.includes(id)) return
       set({ gears: [...get().gears, id] })
+      sfx('gear')
       const island = id.split(':')[0], have = get().gears.filter((g) => g.startsWith(island + ':')).length
       if (have === GEARS_PER_ISLAND) useStore.getState().showToast('All five gears on this island found.')
       finish()
@@ -56,6 +58,7 @@ export const usePlay = create<Play>((set, get) => {
       const first = !get().stamps.includes(island)
       if (first) set({ stamps: [...get().stamps, island] })
       useStore.getState().showToast(first ? `★ Stamp earned. ${message}` : message)
+      if (first) sfx('stamp')
       finish()
     },
     reset: () => {
@@ -120,6 +123,7 @@ export function caught(island: string) {
   if (!stop) return
   game.teleport = { island, xz: [stop.offset[0], stop.offset[1]] }
   useStore.getState().showToast('Spotted! The soldier marched you back to where you landed.')
+  sfx('caught')
   caughtListeners.forEach((fn) => fn(island))
 }
 

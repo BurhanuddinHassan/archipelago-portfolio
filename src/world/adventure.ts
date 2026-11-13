@@ -6,6 +6,7 @@ import { player } from './player'
 import { useStore } from '../store'
 import { readInput } from './input'
 import { game, spotNear } from './play'
+import { setShip, sfx } from '../audio'
 
 /**
  * Adventure Mode: the Pilot is driven directly instead of by scrolling.
@@ -58,6 +59,7 @@ export type AdventureOut = { pose: 'ground' | 'walk' | 'board' | 'sail' | 'land'
 export function createAdventure(colliders: Circle[][], islets: [number, number, number, number][] = []) {
   /** Where the ship drifts to after a landing: tucked against the rim, so it is always in reach to board again. */
   let dock: THREE.Vector3 | null = null
+  let stride = 0
   const pos = new THREE.Vector3(), shipPos = new THREE.Vector3(), seat = new THREE.Vector3(), tmp = new THREE.Vector3(), camTarget = new THREE.Vector3()
   const s = { ready: false, on: 'foot' as 'foot' | 'ship', island: 0, yaw: 0, vy: 0, air: false, shipYaw: MOOR_YAW, shipSpeed: 0, camYaw: 0.62, camPitch: 1.12, camDist: 9, lastLook: -10, hop: null as Hop | null, key: '' }
   const centre = (i: number) => ISLANDS[i].position
@@ -137,7 +139,10 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
 
     // ---- the info card is open: everything else waits; F, Esc or B closes it
     if (store.advRead) {
-      if (input.read || input.exit) useStore.setState({ advRead: null })
+      if (input.read || input.exit) {
+        useStore.setState({ advRead: null })
+        sfx('close')
+      }
       input.mx = input.my = 0
       input.jump = input.act = input.read = input.exit = false
     }
@@ -162,6 +167,7 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
       pos.y += Math.sin(Math.PI * k) * 1.0
       pose = h.then === 'ship' ? 'board' : 'land'
       if (h.t >= 1) {
+        if (h.then === 'foot') sfx('land')
         s.on = h.then
         s.island = h.island
         s.hop = null
@@ -184,11 +190,18 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
         s.yaw = lerpAngle(s.yaw, Math.atan2(vx, vz), 1 - Math.exp(-dt * 12))
         ;[lx, lz] = resolve(s.island, lx, lz)
         pose = 'walk'
+        // a footstep every stride
+        stride += speed * dt
+        if (stride > (input.run ? 1.5 : 1.05) && !s.air) {
+          stride = 0
+          sfx('step')
+        }
       }
       const ground = floor(s.island, lx, lz)
       if (input.jump && !s.air) {
         s.air = true
         s.vy = JUMP
+        sfx('jump')
       }
       let y = ground
       if (s.air) {
@@ -197,6 +210,7 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
         if (y <= ground) {
           y = ground
           s.air = false
+          sfx('land')
         }
       }
       pos.set(centre(s.island)[0] + lx, y, centre(s.island)[2] + lz)
@@ -214,15 +228,22 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
       const shipDist = Math.hypot(pos.x - shipPos.x, pos.z - shipPos.z), near = spotNear(def.id, lx, lz)
       if (near && !(shipDist < BOARD_REACH && shipDist < near.dist)) {
         act = near.label
-        if (input.act) near.spot.use()
+        if (input.act) {
+          sfx('use')
+          near.spot.use()
+        }
       } else if (shipDist < BOARD_REACH) {
         act = 'Board the ship'
         if (input.act) {
           game.emote = null
+          sfx('hop')
           s.hop = { from: pos.clone(), to: new THREE.Vector3(), t: 0, then: 'ship', island: s.island }
         }
       }
-      if (input.read && stop) useStore.setState({ advRead: stop.id })
+      if (input.read && stop) {
+        useStore.setState({ advRead: stop.id })
+        sfx('open')
+      }
       player.running = moving && input.run
       if (dock) {
         shipPos.lerp(dock, 1 - Math.exp(-dt * 1.6))
@@ -276,6 +297,7 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
           const [tx, tz] = resolve(i, Math.cos(ang) * r, Math.sin(ang) * r)
           s.hop = { from: new THREE.Vector3(), to: new THREE.Vector3(centre(i)[0] + tx, floor(i, tx, tz), centre(i)[2] + tz), t: 0, then: 'foot', island: i }
           s.shipSpeed = 0
+          sfx('hop')
           const dr = rimRadius(ISLANDS[i], ang) + SHIP_GAP
           dock = new THREE.Vector3(centre(i)[0] + Math.cos(ang) * dr, centre(i)[1] + 0.6 + HOVER, centre(i)[2] + Math.sin(ang) * dr)
           s.yaw = Math.atan2(-lx, -lz) // face inland
@@ -283,6 +305,8 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
       } else if (near.gap < LAND_REACH) tip = 'Slow down to land'
       if (!look && time - s.lastLook > 1.2) s.camYaw = lerpAngle(s.camYaw, s.shipYaw + Math.PI, 1 - Math.exp(-dt * 2.2))
     }
+
+    setShip(s.on === 'ship' ? 0.15 + Math.abs(s.shipSpeed) / (SHIP_SPEED * SHIP_BOOST) : 0)
 
     // ---- place the ship, then the Pilot on it if he's aboard
     c.ship.position.set(shipPos.x, shipPos.y + bob, shipPos.z)
