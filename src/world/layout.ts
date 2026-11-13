@@ -21,11 +21,11 @@ export const ISLANDS: IslandDef[] = [
   { id: 'behind-the-smile', name: 'Behind the Smile', position: v(-20, 3, -18), radius: 6.2 * S, accent: '#C94F6D', flora: 'mixed' },
   { id: 'chrono-rebellion', name: 'Chrono Rebellion', position: v(2, 5, -32), radius: 6.6 * S, accent: '#7B61C9', flora: 'pine' },
   { id: 'sunken-greed', name: 'Sunken Greed', position: v(24, -1, -20), radius: 6.2 * S, accent: '#2F8F9D', flora: 'leafy' },
-  { id: 'paper-plane-dash', name: 'Paper Plane Dash', position: v(32, 4, 2), radius: 4.8 * S, accent: '#F2B33D', flora: 'mixed' },
+  { id: 'paper-plane-dash', name: 'Paper Plane Dash', position: v(32, 4, 2), radius: 6.0 * S, accent: '#F2B33D', flora: 'mixed' },
   { id: 'merge-defence', name: 'Merge Defence', position: v(20, 1, 22), radius: 6.4 * S, accent: '#5DA05A', flora: 'leafy' },
-  { id: 'harbor', name: 'The Harbor', position: v(-4, -1.5, 18), radius: 4.4 * S, accent: '#3E6E8E', flora: 'leafy' },
-  { id: 'workshop', name: 'Workshop Isle', position: v(-24, 2, 10), radius: 4.4 * S, accent: '#B07A45', flora: 'pine' },
-  { id: 'journey', name: 'Journey Isle', position: v(-30, 0, -6), radius: 4.8 * S, accent: '#8C8C3A', flora: 'mixed' },
+  { id: 'harbor', name: 'The Harbor', position: v(-4, -1.5, 19), radius: 5.8 * S, accent: '#3E6E8E', flora: 'leafy' },
+  { id: 'workshop', name: 'Workshop Isle', position: v(-25, 2, 10), radius: 5.8 * S, accent: '#B07A45', flora: 'pine' },
+  { id: 'journey', name: 'Journey Isle', position: v(-36, 0, -12), radius: 5.8 * S, accent: '#8C8C3A', flora: 'mixed' },
 ]
 
 export type StopDef = {
@@ -42,11 +42,11 @@ export const STOPS: StopDef[] = [
   // stands nearer the front rim than on other islands: the diorama behind him needs the depth
   { id: 'chrono-rebellion', label: 'Chrono Rebellion', island: 'chrono-rebellion', offset: [1.91 * S, 2.6 * S] },
   { id: 'sunken-greed', label: 'Sunken Greed', island: 'sunken-greed', offset: [1.8 * S, 2.46 * S] },
-  { id: 'paper-plane-dash', label: 'Paper Plane Dash', island: 'paper-plane-dash', offset: [0, 1.2 * S] },
+  { id: 'paper-plane-dash', label: 'Paper Plane Dash', island: 'paper-plane-dash', offset: [1.8 * S, 2.46 * S] },
   { id: 'merge-defence', label: 'Merge Defence', island: 'merge-defence', offset: [1.8 * S, 2.46 * S] },
-  { id: 'harbor', label: 'More work', island: 'harbor', offset: [0, 1.2 * S] },
-  { id: 'workshop', label: 'Skills', island: 'workshop', offset: [0, 1.2 * S] },
-  { id: 'journey', label: 'Journey', island: 'journey', offset: [0, 1.2 * S] },
+  { id: 'harbor', label: 'More work', island: 'harbor', offset: [1.8 * S, 2.46 * S] },
+  { id: 'workshop', label: 'Skills', island: 'workshop', offset: [1.8 * S, 2.46 * S] },
+  { id: 'journey', label: 'Journey', island: 'journey', offset: [1.8 * S, 2.46 * S] },
   { id: 'cinema', label: 'Trailer', island: 'home', offset: [-4.2 * S, -1.2 * S] },
   { id: 'contact', label: 'Contact', island: 'home', offset: [3.2 * S, -2.2 * S] },
 ]
@@ -164,8 +164,73 @@ export const SUNK = (() => {
   }
 })()
 
-/** Where the centrepiece of every other island stands: behind the Pilot and a little to the left, clear of the ship. */
-export const CENTREPIECE: [number, number] = [-2.0 * S, -0.6 * S]
+/**
+ * Paper Plane Dash: a three-lane road through a low-poly Japanese town. The plane laps it, dodging fans and
+ * picking up energy cells, and the run gets faster the longer it lasts (no boosters: speed climbs with time).
+ */
+export const DASH = (() => {
+  const n = (side: number, back: number) => nearStop('paper-plane-dash', side, back)
+  const A: [number, number] = [-7.2, 8.8], B: [number, number] = [7.4, 3.2]
+  const len = Math.hypot(B[0] - A[0], B[1] - A[1]), d = [(B[0] - A[0]) / len, (B[1] - A[1]) / len], perp = [-d[1], d[0]]
+  /** A point `s` along the road and `off` to its far side (stage units). */
+  const at = (s: number, off: number) => n(A[0] + d[0] * s + perp[0] * off, A[1] + d[1] * s + perp[1] * off)
+  return {
+    a: n(...A), b: n(...B), len, at,
+    houses: [at(1.9, 3.1), at(5.4, 3.3), at(9.0, 3.1), at(12.6, 3.2)],
+    poles: [at(3.6, 2.0), at(7.2, 2.0), at(10.8, 2.0)],
+    trees: [at(0.6, -2.5), at(6.4, -2.4), at(13.6, -2.3), at(14.6, 2.6)],
+    lanterns: [at(3.4, -2.0), at(9.6, -2.0)],
+    vending: at(11.6, -2.3),
+    bench: at(4.9, -2.3),
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
+
+/** The Harbor ("More work"): a market of stalls, one per kind of project, a lighthouse and a dock with a moored boat. */
+export const HARBOR = (() => {
+  const n = (side: number, back: number) => nearStop('harbor', side, back)
+  return {
+    plaza: n(-0.8, 6.2),
+    stalls: [n(-6.0, 5.4), n(-3.0, 7.9), n(0.6, 8.6), n(3.9, 6.6)],
+    lighthouse: n(5.2, 10.0),
+    board: n(-1.4, 3.6),
+    crates: n(5.8, 3.4),
+    crane: n(-5.6, -1.2),
+    lamps: [n(-4.6, 3.8), n(2.2, 4.4), n(-1.2, 10.4)],
+    anchor: n(1.6, 2.6),
+    /** The dock leaves the island towards this point: the front-left rim, in clear view of the camera. */
+    dockTowards: n(-4.6, -9.0),
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
+
+/** Workshop Isle (skills): a labelled tool rack per skill group, a forge, a workbench shed and a windmill. */
+export const WORKSHOP = (() => {
+  const n = (side: number, back: number) => nearStop('workshop', side, back)
+  return {
+    yard: n(-0.4, 6.0),
+    // racks stand in an arc along the back; everything in front of them is low enough not to hide a sign
+    racks: [n(-7.0, 7.2), n(-4.3, 8.8), n(-1.5, 9.7), n(1.3, 9.6), n(4.0, 8.6)],
+    shed: n(-5.6, 3.4),
+    forge: n(-2.0, 4.2),
+    anvil: n(-0.2, 3.3),
+    windmill: n(6.9, 9.0),
+    grind: n(2.4, 5.4),
+    lumber: n(5.0, 4.6),
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
+
+/** Journey Isle: a path of milestones in the order they happened, ending at an empty camp ("Next stop: your team"). */
+export const JOURNEY = (() => {
+  const n = (side: number, back: number) => nearStop('journey', side, back)
+  return {
+    // points 1 and 3 only steer the path so that it runs straight through the gate (point 2)
+    path: [[4.2, 11.6], [1.1, 12.3], [0.6, 10.7], [0.4, 9.0], [-3.2, 8.2], [-6.6, 6.6], [-3.4, 5.4], [0.8, 7.0], [4.6, 5.6], [-1.4, 3.5], [-3.2, 1.9]].map(([a, b]) => n(a, b)),
+    camp: n(-4.4, 0.7),
+    views: [n(-4.2, -0.8), n(-1.8, -1.8), n(6.2, -0.2)],
+  }
+})()
 
 export const islandSeed = (id: string) => id.split('').reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) % 100000
 
@@ -254,7 +319,44 @@ export function landmarkSpots(def: IslandDef): [number, number, number][] {
       ...t.views.map((q): [[number, number], number] => [q, 2.0]),
     ])
   }
-  return [[...CENTREPIECE, 3.3]]
+  if (def.id === 'paper-plane-dash') {
+    const t = DASH
+    return spots([
+      ...Array.from({ length: 9 }, (_, i): [[number, number], number] => [t.at((i / 8) * t.len, 0), 1.9]),
+      // the near side of the road stays open so the camera can see the lanes
+      ...Array.from({ length: 6 }, (_, i): [[number, number], number] => [t.at(1.5 + i * 2.5, -3.4), 2.1]),
+      ...t.houses.map((q): [[number, number], number] => [q, 2.2]),
+      ...[...t.poles, ...t.trees, ...t.lanterns, t.vending, t.bench].map((q): [[number, number], number] => [q, 0.9]),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
+  }
+  if (def.id === 'harbor') {
+    const t = HARBOR
+    return spots([
+      [t.plaza, 4.6], [t.lighthouse, 2.0], [t.board, 1.2], [t.crates, 1.4], [t.crane, 1.6], [t.anchor, 0.9],
+      ...t.stalls.map((q): [[number, number], number] => [q, 2.0]),
+      ...t.lamps.map((q): [[number, number], number] => [q, 0.7]),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
+  }
+  if (def.id === 'workshop') {
+    const t = WORKSHOP
+    return spots([
+      [t.yard, 4.4], [t.shed, 2.2], [t.forge, 1.8], [t.anvil, 1.0], [t.windmill, 2.0], [t.grind, 0.9], [t.lumber, 1.2],
+      ...t.racks.map((q): [[number, number], number] => [q, 1.6]),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
+  }
+  if (def.id === 'journey') {
+    const t = JOURNEY
+    const mid = (a: [number, number], b: [number, number]): [number, number] => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+    return spots([
+      [t.camp, 2.2],
+      ...t.path.flatMap((q, i): [[number, number], number][] => (i ? [[q, 1.7], [mid(q, t.path[i - 1]), 1.2]] : [[q, 1.7]])),
+      ...t.views.map((q): [[number, number], number] => [q, 2.0]),
+    ])
+  }
+  return []
 }
 
 const surfaces = new Map<string, (x: number, z: number) => number>()
