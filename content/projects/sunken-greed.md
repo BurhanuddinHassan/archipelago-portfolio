@@ -3,7 +3,7 @@ title: Sunken Greed
 slug: sunken-greed
 island: sunken-greed
 order: 3
-year: TODO
+year: 2026
 team: Team of 4 (with Hassan Ghaznavi, Muhammad Ebad Hafeez, Abdul Ahad)
 role: VR Programmer (swimming system)
 engine: [Unity, C#, XR Interaction Toolkit]

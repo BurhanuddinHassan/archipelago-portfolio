@@ -3,7 +3,7 @@ title: Paper Plane Dash
 slug: paper-plane-dash
 island: paper-plane-dash
 order: 4
-year: TODO
+year: 2026
 team: Team of 3
 role: Co-developer
 engine: [Unreal Engine 5, Blueprints]

@@ -5,7 +5,7 @@ island: harbor
 order: 6
 featured: true
 year: 2026
-team: TODO
+team: Solo project
 role: Developer
 engine: [Three.js, JavaScript]
 tags: [Web, 3D, Browser Game]

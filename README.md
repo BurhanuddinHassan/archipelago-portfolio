@@ -20,6 +20,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm run build    # rebuild the chatbot index, type-check, production build into dist/
 npm run preview  # serve the production build
+npm test         # automated tests (Vitest)
 ```
 
 The chatbot and the contact form are Vercel Functions (`api/`). They run on Vercel; under plain `npm run dev`
@@ -140,8 +141,8 @@ The full write-up is in the project report.
   CC0 1.0 (public domain), https://quaternius.com. Recoloured, smooth-shaded and merged into `public/models/props.glb`.
 - **Islands, sky, clouds, the sky-ship and every landmark**: generated in code for this project
   (`src/world/islandGen.ts`, `src/world/SkyShip.tsx`, `src/world/landmarks/`).
-- **The Pilot character**: base mesh generated from a photo with an AI image-to-3D tool, then rigged and animated
-  in Blender by Burhanuddin. Texture atlas re-packed by `tools/rebake-character.mjs`.
+- **The Pilot character**: base mesh generated from a photo with an AI image-to-3D tool, then rigged and
+  animated with automated tools and prepared for the web by Burhanuddin. Texture atlas re-packed by `tools/rebake-character.mjs`.
 - **Behind the Smile mask**: Burhanuddin's own model from the game (Blockbench), converted to code in `maskData.ts`.
 - **Sound recordings** (`public/audio/`, trimmed and looped from the [AmbientSounds](https://github.com/Muges/ambientsounds) collection):
   *Wind* by felix.blume (CC0), *Fireplace* by inchadney (CC0), *Stream* by mystiscool (CC BY 3.0), all from freesound.org.

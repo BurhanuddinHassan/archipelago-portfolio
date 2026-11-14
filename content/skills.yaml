@@ -1,5 +1,5 @@
 # Each skill lists the project slugs that prove it.
-# Skills with an empty "proof" list are shown without links. TODO: add evidence or remove them.
+# Skills with an empty "proof" list are shown without links.
 groups:
   - name: Engines
     skills:
@@ -9,22 +9,21 @@ groups:
   - name: Languages
     skills:
       - { name: C#, proof: [behind-the-smile, chrono-rebellion, sunken-greed, merge-defence, card-solitaire] }
-      - { name: C++, proof: [] }          # TODO: which project uses C++?
+      - { name: C++, proof: [] }          # university coursework
       - { name: JavaScript, proof: [fruit-slice-3d, blocks-builder, garganta-portal] }
-      - { name: Python, proof: [] }       # TODO: was the OpenCV shooter in Python?
       - { name: HTML / CSS, proof: [blocks-builder] }
       - { name: GLSL shaders, proof: [garganta-portal] }
   - name: XR & computer vision
     skills:
       - { name: XR Interaction Toolkit, proof: [sunken-greed, phineas-ferb-vr] }
-      - { name: OpenXR, proof: [] }       # TODO: evidence
-      - { name: Vuforia, proof: [] }      # TODO: evidence
+      - { name: OpenXR, proof: [sunken-greed] }
+      - { name: Vuforia (AR lab builds), proof: [] }
       - { name: OpenCV, proof: [hand-tracked-shooter] }
-      - { name: MediaPipe, proof: [] }    # TODO: evidence
   - name: Art, motion & video
     skills:
       - { name: After Effects, proof: [coverall-animation, motion-poster, badshahi-mosque, parallax-video] }
-      - { name: Blender (character modelling, Mixamo rigging), proof: [] }  # proof: this portfolio's avatar
+      - { name: Adobe Media Encoder, proof: [coverall-animation, motion-poster, badshahi-mosque, parallax-video] }
+      - { name: Blender (basics), proof: [] }
       - { name: Photoshop / Illustrator, proof: [] }
   - name: QA
     skills:

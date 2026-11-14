@@ -3,7 +3,7 @@ title: Merge Defence
 slug: merge-defence
 island: merge-defence
 order: 5
-year: TODO
+year: 2026
 team: Solo project
 role: Sole developer
 engine: [Unity, C#]

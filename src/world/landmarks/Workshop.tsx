@@ -15,9 +15,9 @@ import { Board, listTex, placer } from './parts'
 /** The racks. Each lists a group of skills from content/skills.yaml (Blender is left out on purpose: rarely used). */
 const RACKS: { heading: string; items: string[]; colour: string }[] = [
   { heading: 'ENGINES', items: ['Unity', 'Unreal Engine 5', 'Three.js'], colour: '#B07A45' },
-  { heading: 'LANGUAGES', items: ['C#', 'C++', 'JavaScript', 'Python', 'GLSL shaders', 'HTML / CSS'], colour: '#5d7fb8' },
-  { heading: 'XR & VISION', items: ['XR Interaction Toolkit', 'OpenXR', 'Vuforia', 'OpenCV', 'MediaPipe'], colour: '#7B61C9' },
-  { heading: 'MOTION & DESIGN', items: ['After Effects', 'Photoshop', 'Illustrator'], colour: '#2F8F9D' },
+  { heading: 'LANGUAGES', items: ['C#', 'C++', 'JavaScript', 'GLSL shaders', 'HTML / CSS'], colour: '#5d7fb8' },
+  { heading: 'XR & VISION', items: ['XR Interaction Toolkit', 'OpenXR', 'Vuforia', 'OpenCV'], colour: '#7B61C9' },
+  { heading: 'MOTION & DESIGN', items: ['After Effects', 'Media Encoder', 'Photoshop', 'Illustrator'], colour: '#2F8F9D' },
   { heading: 'QA', items: ['Playtesting', 'Bug reporting'], colour: '#5DA05A' },
 ]
 

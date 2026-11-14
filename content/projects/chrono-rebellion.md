@@ -3,7 +3,7 @@ title: Chrono Rebellion
 slug: chrono-rebellion
 island: chrono-rebellion
 order: 2
-year: TODO
+year: 2025
 team: Team of 3
 role: Gameplay Programmer
 engine: [Unity, C#]
