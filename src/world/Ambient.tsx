@@ -331,11 +331,11 @@ export function Waterfalls({ night }: { night: boolean }) {
               '  float streak = sin(across * 24.0 + sin(along * 0.7 - uTime * 1.6) * 1.5) * 0.5 + 0.5;',
               '  float flow = sin(along * 2.2 - uTime * 5.0 + across * 5.0) * 0.5 + 0.5;',
               '  float drop = smoothstep(0.0, 0.22, fall);', // 0 on the grass, 1 once the water is falling
-              '  float white = (streak * 0.6 + flow * 0.25) * mix(0.22, 1.0, drop);',
+              '  float white = (streak * 0.6 + flow * 0.25) * mix(0.06, 1.0, drop);', // calm on the grass, white water once it falls
               '  vec3 col = mix(vec3(0.45, 0.78, 0.9), vec3(1.0), white);',
-              '  col = mix(col, vec3(0.93, 0.98, 1.0), smoothstep(0.7, 1.0, edge) * 0.65 * (1.0 - drop));', // foam along the banks
-              '  float sheet = (1.0 - smoothstep(0.62, 1.0, edge)) * (0.6 + streak * 0.35);',
-              '  float alpha = mix(0.92, sheet, drop) * (1.0 - smoothstep(0.4, 1.0, fall));',
+                            '  float sheet = (1.0 - smoothstep(0.62, 1.0, edge)) * (0.6 + streak * 0.35);',
+              '  float flat = 1.0 - smoothstep(0.86, 1.0, edge);', // pond and stream are opaque with soft banks, so where they overlap they read as one
+              '  float alpha = mix(flat, sheet, drop) * (1.0 - smoothstep(0.4, 1.0, fall));',
               '  gl_FragColor = vec4(col * uDim, alpha);',
               '  #include <colorspace_fragment>',
               '}',

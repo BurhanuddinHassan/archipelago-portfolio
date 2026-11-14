@@ -93,11 +93,13 @@ function bugHunt(): Piece {
   return { body: merge(p), glow: cyl(0.2, 0.2, 0.01, hex('#cfeeff'), [0.05, 0.95, 0.1], [Math.PI / 2 - 0.5, 0, 0], 12) }
 }
 
-function banner(accent: THREE.Color): Piece {
-  const p = [cyl(0.05, 0.06, 2.6, C.woodDark, [0, 1.3, 0], undefined, 6), sphere(0.09, C.gold, [0, 2.65, 0], 6), box([0.9, 0.05, 0.05], C.woodDark, [0.4, 2.4, 0])]
-  p.push(box([0.8, 1.1, 0.03], accent, [0.42, 1.82, 0]), prism(0.8, -0.3, 0.03, accent, [0.42, 1.27, 0]))
-  p.push(box([0.3, 0.2, 0.04], C.white, [0.42, 2.0, 0.01]), box([0.1, 0.1, 0.05], C.white, [0.3, 1.7, 0.01]), box([0.1, 0.1, 0.05], C.white, [0.54, 1.7, 0.01])) // a little game controller
-  return { body: merge(p) }
+/** A game controller on a crate: leading the society's technical team. */
+function controller(): Piece {
+  const dark = hex('#2b2730')
+  const p = [box([0.9, 0.6, 0.7], C.woodLight, [0, 0.3, 0]), box([1.0, 0.06, 0.8], C.wood, [0, 0.63, 0])]
+  p.push(box([0.6, 0.12, 0.3], dark, [0, 0.78, 0], [0.25, 0, 0]), sphere(0.15, dark, [-0.3, 0.74, 0.06], 8), sphere(0.15, dark, [0.3, 0.74, 0.06], 8))
+  const g = [sphere(0.04, hex('#7dffb0'), [0.2, 0.86, -0.02], 5), sphere(0.04, hex('#ff8a7a'), [0.28, 0.84, 0.04], 5), sphere(0.045, hex('#7de3ff'), [-0.22, 0.85, 0.0], 5)]
+  return { body: merge(p), glow: merge(g) }
 }
 
 /** The camp at the end of the path: a tent, log seats round a fire, and a bare flagpole waiting for a flag. */
@@ -119,7 +121,7 @@ export function Journey({ def, night, simple }: { def: IslandDef; night: boolean
 
   const g = useMemo(() => {
     const path = pathRibbon(def, JOURNEY.path, 1.0, hex('#e4d3a6'), hex('#d8c594'), 80)
-    const pieces: Piece[] = [books(), gate(), easel(), trophy(), servers(), certificates(), bugHunt(), banner(hex('#3E6E8E'))]
+    const pieces: Piece[] = [books(), gate(), easel(), trophy(), servers(), certificates(), bugHunt(), controller()]
     // the gate straddles the path; everything else stands just behind its point on the path
     const t = new THREE.Vector3(JOURNEY.path[3][0] - JOURNEY.path[1][0], 0, JOURNEY.path[3][1] - JOURNEY.path[1][1]).normalize()
     return { path, pieces, camp: camp(accent), gateYaw: Math.atan2(t.x, t.z) }
@@ -181,7 +183,7 @@ export function Journey({ def, night, simple }: { def: IslandDef; night: boolean
       <At def={def} xz={JOURNEY.camp} turn={0.2} scale={1.15}>
         <Body g={g.camp.body} />
         <group position={[0.9, 0.05, 0.5]}>
-          <Fire sparks={!simple} />
+          <Fire sparks={!simple} lit={night} />
         </group>
         <mesh ref={flag} position={[-2.3, 2.7, 0.6]}>
           <boxGeometry args={[0.7, 0.42, 0.02]} />

@@ -389,8 +389,8 @@ function Lanterns({ def, night }: { def: IslandDef; night: boolean }) {
           <GlowMesh geometry={glow} night={night} day="#e9e2d2" lit="#ffd27a" />
           {night && (
             <mesh position={[0.4, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
-              <circleGeometry args={[2.3, 20]} />
-              <meshBasicMaterial color="#ffc266" alphaMap={pool} transparent opacity={0.3} depthWrite={false} blending={THREE.AdditiveBlending} polygonOffset polygonOffsetFactor={-3} />
+              <circleGeometry args={[3.0, 24]} />
+              <meshBasicMaterial color="#ffc266" map={pool} transparent opacity={0.16} depthWrite={false} blending={THREE.AdditiveBlending} polygonOffset polygonOffsetFactor={-3} />
             </mesh>
           )}
         </group>
@@ -528,7 +528,7 @@ function Extras({ def, night }: { def: IslandDef; night: boolean }) {
         ))}
       </At>
       <At def={def} xz={h.campfire} turn={0.4}>
-        <Fire scale={1.25} />
+        <Fire scale={1.25} lit={night} />
         {night && <pointLight position={[0, 0.8, 0]} color="#ff9a4a" intensity={5} distance={7} />}
       </At>
     </>

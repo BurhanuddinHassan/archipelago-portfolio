@@ -151,7 +151,7 @@ export function Board({ tex, w, h, y, posts = true, wood = '#8a5a3b' }: { tex: T
  * A campfire flame: three soft sheets of fire drawn by a small shader (flickering edges, white-hot core fading to
  * red), plus sparks drifting up. Sits with its base at the origin.
  */
-export function Fire({ scale = 1, sparks = true }: { scale?: number; sparks?: boolean }) {
+export function Fire({ scale = 1, sparks = true, lit = true }: { scale?: number; sparks?: boolean; lit?: boolean }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -186,6 +186,22 @@ export function Fire({ scale = 1, sparks = true }: { scale?: number; sparks?: bo
       m.scale.setScalar(1 - f)
     })
   })
+  // by day the fire is out: charred wood and a bed of ash
+  if (!lit)
+    return (
+      <group scale={scale}>
+        <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.36, 12]} />
+          <meshLambertMaterial color="#8c8a86" />
+        </mesh>
+        {[0, 1.2, 2.5].map((r, i) => (
+          <mesh key={i} position={[Math.cos(r) * 0.08, 0.09, Math.sin(r) * 0.08]} rotation={[0, r, Math.PI / 2 - 0.2]}>
+            <cylinderGeometry args={[0.055, 0.055, 0.5, 5]} />
+            <meshLambertMaterial color={i ? '#2a2422' : '#3b322d'} />
+          </mesh>
+        ))}
+      </group>
+    )
   return (
     <group scale={scale}>
       {[0, Math.PI / 3, (2 * Math.PI) / 3].map((r, i) => (

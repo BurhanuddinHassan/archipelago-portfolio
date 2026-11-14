@@ -90,7 +90,7 @@ into one mesh per piece. Each island tells its game's story on a loop:
 |---|---|
 | Behind the Smile | A town where everyone wears the same smiling mask. An angel lifts one villager's mask, finds he is scared of a spider, removes it, and he is happy. |
 | Chrono Rebellion | The island is split by a timeline crack: 1944 (bunker, watchtower with a sweeping lamp, a patrolling soldier) and 2145 (the hero's ship). The soldier is a small state machine (patrol, alert, chase, attack, return) that spots the Pilot when he comes within range. |
-| Sunken Greed | The full VR dive: leave the base, search three empty spots, wait for a whale, open the treasure, get eaten by a mosasaurus. The diver swims with arm strokes and leg kicks. |
+| Sunken Greed | The full VR dive: leave the base, search three empty spots, wait for a whale, open the treasure. The diver swims with arm strokes and leg kicks. |
 | Paper Plane Dash | The runner itself: a paper plane laps a three-lane road through a Japanese town, dodging fans and collecting energy cells. Speed rises with time alone, as in the game, until it crashes and restarts. |
 | Merge Defence | A playable-looking board: monsters walk from a cave to a castle in waves, five levels of cannon fire at them, coins drop, power-ups charge. |
 | Home | Cottage, outdoor cinema for the trailer, post box at Contact, a clickable arcade cabinet that opens my Fruit Slice 3D game, a garden, well, studio and campfire. |

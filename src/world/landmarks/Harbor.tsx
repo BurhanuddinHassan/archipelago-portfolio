@@ -7,6 +7,7 @@ import { At, Body, Glow, ell } from './Chrono'
 import { groundPatch } from './ground'
 import { C, beam, blob, box, cone, cyl, hex, merge, prism, sphere, torus } from './kit'
 import { Board, labelTex, placer } from './parts'
+import { CAST_MS, game } from '../play'
 
 /**
  * The Harbor ("More work"): a small market where each stall is one kind of project, with a few props from those projects
@@ -164,6 +165,7 @@ export function Harbor({ def, night, simple }: { def: IslandDef; night: boolean;
     p.push(beam(new THREE.Vector3(cr[0] - ux * 0.7, cy + 2.6, cr[1] - uz * 0.7), armTip, 0.12, 0.12, C.wood), beam(new THREE.Vector3(cr[0], cy + 1.5, cr[1]), new THREE.Vector3(cr[0] + ux * 1.2, cy + 2.95, cr[1] + uz * 1.2), 0.07, 0.07, C.woodDark))
     return {
       plaza, town: merge(p), glow: merge(glow), stalls: STALLS.map((s, i) => stall(i, hex(s.colour))), boat: boat(accent), gull: gull(),
+      line: new THREE.CylinderGeometry(0.015, 0.015, 1, 4).translate(0, -0.5, 0),
       hook: merge([cyl(0.015, 0.015, 1.3, ROPE, [0, -0.65, 0], undefined, 4), box([0.5, 0.5, 0.5], C.woodLight, [0, -1.55, 0]), box([0.54, 0.06, 0.54], C.woodDark, [0, -1.55, 0])]),
       armTip, boatAt: new THREE.Vector3(ux * (r1 + 0.2) - uz * 1.7, deckY - 0.35, uz * (r1 + 0.2) + ux * 1.7), boatYaw: yaw + 0.15,
       lightAt: new THREE.Vector3(HARBOR.lighthouse[0], groundY(def, ...HARBOR.lighthouse) + 4.4 * 1.35, HARBOR.lighthouse[1]),
@@ -171,7 +173,7 @@ export function Harbor({ def, night, simple }: { def: IslandDef; night: boolean;
   }, [def, accent])
 
   const centre = useMemo(() => new THREE.Vector3(...def.position), [def])
-  const boatRef = useRef<THREE.Group>(null), hook = useRef<THREE.Mesh>(null), beamRef = useRef<THREE.Group>(null), gulls = useRef<(THREE.Mesh | null)[]>([])
+  const boatRef = useRef<THREE.Group>(null), hook = useRef<THREE.Mesh>(null), line = useRef<THREE.Mesh>(null), beamRef = useRef<THREE.Group>(null), gulls = useRef<(THREE.Mesh | null)[]>([])
   useFrame((state, dt) => {
     if (state.camera.position.distanceTo(centre) > 80) return
     const t = state.clock.elapsedTime
@@ -179,7 +181,16 @@ export function Harbor({ def, night, simple }: { def: IslandDef; night: boolean;
       boatRef.current.position.y = g.boatAt.y + Math.sin(t * 0.9) * 0.14
       boatRef.current.rotation.set(Math.sin(t * 0.7) * 0.04, g.boatYaw, Math.sin(t * 0.9 + 1) * 0.06, 'YXZ')
     }
-    if (hook.current) hook.current.rotation.set(Math.sin(t * 1.1) * 0.12, 0, Math.cos(t * 0.8) * 0.1)
+    // the crane's line: lowered and wound back up when the player casts it
+    const cast = (performance.now() - game.harborCast) / CAST_MS, drop = cast >= 0 && cast <= 1 ? Math.sin(Math.PI * cast) ** 0.7 * 3.2 : 0
+    if (hook.current) {
+      hook.current.position.set(g.armTip.x, g.armTip.y - drop, g.armTip.z)
+      hook.current.rotation.set(Math.sin(t * 1.1) * 0.12 * (1 - drop / 4), 0, Math.cos(t * 0.8) * 0.1 * (1 - drop / 4))
+    }
+    if (line.current) {
+      line.current.visible = drop > 0.02
+      line.current.scale.y = Math.max(0.01, drop)
+    }
     if (beamRef.current) beamRef.current.rotation.y += dt * 0.7
     gulls.current.forEach((m, i) => {
       if (!m) return
@@ -203,12 +214,15 @@ export function Harbor({ def, night, simple }: { def: IslandDef; night: boolean;
           <Board tex={signs[i]} w={2.3} h={0.79} y={2.85} posts={false} />
         </At>
       ))}
-      <At def={def} xz={HARBOR.board} turn={0.25} scale={1.1} lift={2.05}>
+      <At def={def} xz={HARBOR.board} turn={0.25} scale={1.1} lift={2.46}>
         <Board tex={moreSign} w={1.9} h={0.56} y={0} posts={false} />
       </At>
       <group ref={boatRef} position={g.boatAt} scale={1.2}>
         <Body g={g.boat} />
       </group>
+      <mesh ref={line} geometry={g.line} position={g.armTip} visible={false}>
+        <meshLambertMaterial color="#d9c08a" />
+      </mesh>
       <mesh ref={hook} geometry={g.hook} position={g.armTip} castShadow>
         <meshLambertMaterial vertexColors />
       </mesh>

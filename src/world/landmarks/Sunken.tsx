@@ -303,12 +303,6 @@ export function SunkenGreed({ def, night, simple }: { def: IslandDef; night: boo
         </mesh>
       </group>
 
-      <group ref={beast} visible={false} scale={1.25}>
-        <Body g={g.beast} />
-        <mesh ref={jaw} geometry={g.jaw} position={[0, -0.1, 0.3]}>
-          <meshLambertMaterial vertexColors />
-        </mesh>
-      </group>
 
       {bubbles.map((_, i) => (
         <mesh key={i} ref={(el) => void (bubbleRefs.current[i] = el)}>

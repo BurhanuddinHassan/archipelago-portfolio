@@ -428,8 +428,17 @@ export function solidSpots(def: IslandDef): [number, number, number][] {
     case 'workshop':
       return c([[WORKSHOP.shed, 1.8], [WORKSHOP.forge, 1.2], [WORKSHOP.anvil, 0.6], [WORKSHOP.windmill, 1.6], [WORKSHOP.grind, 0.6], [WORKSHOP.lumber, 1.0], ...each(WORKSHOP.racks, 1.2)])
     case 'journey': {
-      const back = (q: [number, number]): [number, number] => [q[0] - CAM_DIR[0] * 1.25, q[1] - CAM_DIR[1] * 1.25]
-      return c([[JOURNEY.camp, 0.9], ...each([0, 4, 5, 6, 7, 8, 9].map((i) => back(JOURNEY.path[i])), 1.3)])
+      // each milestone is a small prop with a sign beside it, set back from the path, so the path itself stays clear
+      const P = JOURNEY.path, at = (q: [number, number], side: number, back: number): [number, number] => [q[0] + MOOR_DIR[0] * side - CAM_DIR[0] * back, q[1] + MOOR_DIR[1] * side - CAM_DIR[1] * back]
+      const list: [[number, number], number][] = []
+      for (const i of [0, 4, 5, 6, 7, 8, 9]) list.push([at(P[i], -1.25, 1.0), 0.7], [at(P[i], 0.75, 1.25), 0.75])
+      // the gate's two pillars (the path runs between them) and its sign
+      const tx = P[3][0] - P[1][0], tz = P[3][1] - P[1][1], tl = Math.hypot(tx, tz)
+      for (const k of [-1.31, 1.31]) list.push([[P[2][0] + (tz / tl) * k, P[2][1] - (tx / tl) * k], 0.45])
+      list.push([at(P[2], 3.1, 0), 0.75])
+      // the camp: tent, fire, sign
+      list.push([at(JOURNEY.camp, -1.3, 1.0), 1.15], [at(JOURNEY.camp, 1.0, -0.55), 0.45], [at(JOURNEY.camp, 0.45, 1.5), 0.7])
+      return c(list)
     }
     default:
       return []

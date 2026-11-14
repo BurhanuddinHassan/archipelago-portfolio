@@ -19,7 +19,7 @@ const level = { ship: null as GainNode | null, fire: null as GainNode | null, wa
 let shipOsc: OscillatorNode[] = []
 let fireLevel = 0
 
-const VOLUME = 0.55
+const VOLUME = 0.5
 
 try {
   enabled = localStorage.getItem('sound') !== 'off'
@@ -76,11 +76,11 @@ export function initAudio() {
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
 
   // wind: band-passed noise that slowly swells and shifts
-  const wind = filter('bandpass', 420, 0.5), windGain = gain(0.05)
+  const wind = filter('bandpass', 420, 0.5), windGain = gain(0.02)
   loop(noise).connect(wind).connect(windGain)
   const swell = ctx.createOscillator(), swellDepth = ctx.createGain(), drift = ctx.createOscillator(), driftDepth = ctx.createGain()
   swell.frequency.value = 0.07
-  swellDepth.gain.value = 0.03
+  swellDepth.gain.value = 0.011
   swell.connect(swellDepth).connect(windGain.gain)
   drift.frequency.value = 0.045
   driftDepth.gain.value = 180
@@ -136,7 +136,7 @@ export function initAudio() {
   burst.start()
 
   // music: slow notes from a five-note scale through an echo
-  musicBus = gain(0.11)
+  musicBus = gain(0.045)
   const echo = ctx.createDelay(1), feedback = ctx.createGain()
   echo.delayTime.value = 0.42
   feedback.gain.value = 0.38
@@ -271,7 +271,7 @@ const ease = (g: GainNode | null, v: number, t = 0.25) => g && ctx && g.gain.set
 /** How hard the ship is working, 0 (moored) to 1 (full speed). */
 export function setShip(v: number) {
   if (!ctx) return
-  ease(level.ship, Math.min(1, v) * 0.11, 0.35)
+  ease(level.ship, Math.min(1, v) * 0.07, 0.35)
   shipOsc.forEach((o, i) => o.frequency.setTargetAtTime((i ? 82.6 : 55) * (1 + Math.min(1, v) * 0.45), ctx!.currentTime, 0.4))
 }
 
@@ -284,14 +284,15 @@ export function listenAt(x: number, y: number, z: number) {
     if (e.kind === 'fire') fire = Math.max(fire, k)
     else water = Math.max(water, k)
   }
+  if (!night) fire = 0 // the campfires only burn at night
   fireLevel = fire
-  ease(level.fire, fire * 0.1)
-  ease(level.water, water * 0.16)
+  ease(level.fire, fire * 0.07)
+  ease(level.water, water * 0.08)
 }
 
 export function setNight(v: boolean) {
   night = v
-  ease(level.crickets, v ? 0.012 : 0, 1.5)
+  ease(level.crickets, v ? 0.005 : 0, 1.5)
 }
 
 export function setSoundEnabled(v: boolean) {

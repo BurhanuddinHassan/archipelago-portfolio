@@ -243,7 +243,7 @@ export function PaperPlaneDash({ def, night, simple }: { def: IslandDef; night: 
       if (plane.current) {
         plane.current.rotation.z += dt * 14
         plane.current.position.y += (1.6 - s.crash * 3.2) * dt
-        plane.current.scale.setScalar(Math.max(0.01, 1.15 * (1 - s.crash / 1.5)))
+        plane.current.scale.setScalar(Math.max(0.01, 0.8 * (1 - s.crash / 1.5)))
       }
       if (s.crash > 1.5) Object.assign(s, { u: 0, run: 0, lat: 0, energy: 0.8, metres: 0, crash: -1, doom: -1, taken: CELLS.map(() => false) })
     } else {
@@ -275,7 +275,7 @@ export function PaperPlaneDash({ def, night, simple }: { def: IslandDef; night: 
         road.at(s.u, s.lat, 0.95 + Math.sin(time * 5) * 0.05, plane.current.position)
         plane.current.rotation.set(-0.06, road.yaw, (s.lat - target) * 0.9, 'YXZ')
         // fades in and out of the gates so the lap never visibly jumps
-        plane.current.scale.setScalar(1.15 * Math.min(1, s.u / 0.04, (1 - s.u) / 0.04))
+        plane.current.scale.setScalar(0.8 * Math.min(1, s.u / 0.04, (1 - s.u) / 0.04))
       }
       if (trail.current) trail.current.scale.z = 0.4 + (boost - 1) * 1.3
     }
@@ -317,7 +317,7 @@ export function PaperPlaneDash({ def, night, simple }: { def: IslandDef; night: 
           <meshBasicMaterial vertexColors color={night ? '#ffffff' : '#e4f5ea'} toneMapped={false} />
         </mesh>
       ))}
-      <group ref={plane} scale={1.15}>
+      <group ref={plane} scale={0.8}>
         <mesh geometry={g.plane} castShadow>
           <meshLambertMaterial vertexColors side={THREE.DoubleSide} />
         </mesh>

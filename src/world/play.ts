@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { STOPS, groundY, islandSeed, rimRadius, type IslandDef } from './layout'
+import { STOPS, clearSpots, groundY, islandSeed, rimRadius, waterfallSpot, type IslandDef } from './layout'
 import { useStore } from '../store'
 import { sfx } from '../audio'
 
@@ -11,6 +11,8 @@ import { sfx } from '../audio'
  * Progress is saved in the browser, so it is still there on the next visit.
  */
 
+/** How long the Harbor crane takes to lower its line and wind it back. */
+export const CAST_MS = 3400
 export const GEARS_PER_ISLAND = 5
 export const ISLAND_COUNT = 9
 
@@ -19,7 +21,7 @@ export const ISLAND_COUNT = 9
 type Saved = { gears: string[]; stamps: string[] }
 const load = (): Saved => {
   try {
-    const s = JSON.parse(localStorage.getItem('play') ?? '{}')
+    const s = JSON.parse(localStorage.getItem('play2') ?? '{}')
     return { gears: Array.isArray(s.gears) ? s.gears : [], stamps: Array.isArray(s.stamps) ? s.stamps : [] }
   } catch {
     return { gears: [], stamps: [] }
@@ -27,7 +29,7 @@ const load = (): Saved => {
 }
 const save = (s: Saved) => {
   try {
-    localStorage.setItem('play', JSON.stringify(s))
+    localStorage.setItem('play2', JSON.stringify(s))
   } catch {
     /* private browsing: progress just lasts for this visit */
   }
@@ -108,6 +110,8 @@ export const game = {
   teleport: null as null | { island: string; xz: [number, number] },
   /** Merge Defence: a power-up (0 shield, 1 rapid fire, 2 fire power) the player just triggered at a shrine. */
   mergePower: -1,
+  /** The Harbor: when the crane's line was last cast (performance.now()). */
+  harborCast: -1e9,
 }
 export const emote = (pose: 'cheer' | 'sit', seconds = 2.4) => void (game.emote = { pose, left: pose === 'sit' ? Infinity : seconds })
 
@@ -129,17 +133,23 @@ export function caught(island: string) {
 
 /* ---------------- where the gears hide ---------------- */
 
-/** Five walkable places on an island, clear of anything solid and of the tour stops; the same every visit. */
+/**
+ * Five places on an island for the gears: on open grass, away from buildings, props, paths, ponds, the tour stops and
+ * each other. The same every visit. The clearings round landmarks are avoided too, so no gear ends up inside one.
+ */
 export function gearSpots(def: IslandDef, solids: [number, number, number][]): [number, number, number][] {
   let seed = islandSeed(def.id) * 7919 + 13
   const rnd = () => ((seed = (seed * 16807) % 2147483647) & 0xffff) / 0xffff
-  const stops = STOPS.filter((s) => s.island === def.id).map((s) => s.offset)
+  const keepOut = clearSpots(def), pond = waterfallSpot(def)?.pond
   const out: [number, number, number][] = []
-  for (let tries = 0; tries < 600 && out.length < GEARS_PER_ISLAND; tries++) {
-    const a = rnd() * Math.PI * 2, r = rimRadius(def, a) * (0.2 + rnd() * 0.62), x = Math.cos(a) * r, z = Math.sin(a) * r
-    if (solids.some(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) < cr + 0.7)) continue
-    if (stops.some(([sx, sz]) => Math.hypot(x - sx, z - sz) < 3)) continue
-    if (out.some(([ox, , oz]) => Math.hypot(x - ox, z - oz) < 4.5 - tries * 0.005)) continue
+  for (let tries = 0; tries < 4000 && out.length < GEARS_PER_ISLAND; tries++) {
+    const strict = tries < 3000 // if the island is too crowded for five strict spots, allow the clearings
+    const a = rnd() * Math.PI * 2, r = rimRadius(def, a) * (0.25 + rnd() * 0.57), x = Math.cos(a) * r, z = Math.sin(a) * r
+    if (solids.some(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) < cr + 1.1)) continue
+    if (strict && keepOut.some(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) < cr + 0.3)) continue
+    if (pond && Math.hypot(x - pond[0], z - pond[1]) < 3) continue
+    if (STOPS.some((s) => s.island === def.id && Math.hypot(x - s.offset[0], z - s.offset[1]) < 3)) continue
+    if (out.some(([ox, , oz]) => Math.hypot(x - ox, z - oz) < 4)) continue
     out.push([x, groundY(def, x, z), z])
   }
   return out

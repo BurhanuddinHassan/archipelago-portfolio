@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { CHRONO, DASH, HARBOR, HOME_PIECES, JOURNEY, MERGE, SMILE, SUNK, WORKSHOP, groundY, rimRadius, type IslandDef } from '../layout'
+import { CHRONO, DASH, HARBOR, HOME_PIECES, JOURNEY, MERGE, SMILE, SUNK, WORKSHOP, groundY, type IslandDef } from '../layout'
 import { player } from '../player'
-import { GEARS_PER_ISLAND, addSpots, emote, game, onCaught, usePlay, type Spot } from '../play'
+import { CAST_MS, GEARS_PER_ISLAND, addSpots, emote, game, onCaught, usePlay, type Spot } from '../play'
 import { useStore } from '../../store'
 import { sfx } from '../../audio'
 import { profile } from '../../content'
@@ -103,8 +103,31 @@ function MergeFun({ def }: { def: IslandDef }) {
   return null
 }
 
+/**
+ * Behind the Smile: do what the angel does in the game. Find out what the scared villager is hiding behind his mask,
+ * deal with it, lift the mask and bin it. The other villagers can be greeted too; their smiles don't move.
+ */
 function SmileFun({ def }: { def: IslandDef }) {
-  useSpots(def.id, () => [{ xz: SMILE.basket, reach: 2.0, label: () => 'Drop your mask in the basket', use: () => (emote('cheer'), stamp(def.id, 'Behind the Smile: no mask needed here.')) }])
+  const step = useRef(0)
+  const lines = ['“Lovely day! Everything is fine.” The painted smile doesn’t move.', '“No complaints here.” You can’t see his eyes behind the mask.', '“We always smile in this town.” Her voice is very quiet.', '“Busy, busy! All good!” He hurries past.', '“Smile! It’s easier.” She adjusts her mask.']
+  useSpots(def.id, () => [
+    {
+      xz: SMILE.scared, reach: 1.9,
+      label: () => (step.current === 0 ? 'Ask this villager what’s wrong' : step.current === 2 ? 'Lift his mask' : null),
+      use: () => {
+        if (step.current === 0) return void ((step.current = 1), toast('He points a shaking hand at the street lamp. “The… the spider.” Go and deal with it.'))
+        step.current = 3
+        toast('The mask comes off. He’s smiling for real this time. Take the mask to the basket.')
+      },
+    },
+    { xz: SMILE.lamp, reach: 2.0, label: () => (step.current === 1 ? 'Shoo the spider away' : null), use: () => ((step.current = 2), sfx('hop'), toast('The spider scuttles off. Go back and tell him it’s safe.')) },
+    {
+      xz: SMILE.basket, reach: 2.0,
+      label: () => (step.current === 3 ? 'Drop the mask in the basket' : null),
+      use: () => ((step.current = 0), emote('cheer'), stamp(def.id, 'Behind the Smile: one real smile, one less mask.')),
+    },
+    ...SMILE.villagers.map((xz, i) => ({ xz, reach: 1.7, label: () => 'Say hello', use: () => toast(lines[i % lines.length]) })),
+  ])
   return null
 }
 
@@ -121,7 +144,7 @@ function SunkenFun({ def }: { def: IslandDef }) {
         if (!searched.current.every(Boolean)) return toast('The chest won’t budge. Search the three marked spots first.')
         searched.current = [false, false, false]
         emote('cheer')
-        stamp(def.id, 'Sunken Greed: treasure found. Greed has a price, though: watch the water.')
+        stamp(def.id, 'Sunken Greed: treasure found, after three empty spots.')
       },
     },
   ])
@@ -165,24 +188,24 @@ function DashFun({ def }: { def: IslandDef }) {
   )
 }
 
-/** The Harbor: fishing off the dock. */
+/** The Harbor: fishing with the cargo crane. Its line goes down over the edge and comes back with something on it. */
 function HarborFun({ def }: { def: IslandDef }) {
-  const a = Math.atan2(HARBOR.dockTowards[1], HARBOR.dockTowards[0]), r = rimRadius(def, a) * 0.86
-  const fishing = useRef(false)
+  const busy = useRef(false)
   const catches = ['a Cloud Trout', 'a Sky Sardine', 'a slightly soggy paper plane', 'a lost energy cell', 'an old boot', 'a Moonfish', 'a tangle of kite string', 'a Gilded Koi']
-  useEffect(() => () => void (fishing.current = false), [])
+  useEffect(() => () => void (busy.current = false), [])
   useSpots(def.id, () => [
     {
-      xz: [Math.cos(a) * r, Math.sin(a) * r], reach: 2.6, label: () => (fishing.current ? 'Waiting for a bite…' : 'Cast a line off the dock'),
+      xz: HARBOR.crane, reach: 2.4, label: () => (busy.current ? 'Waiting for a bite…' : 'Cast the crane’s line'),
       use: () => {
-        if (fishing.current) return
-        fishing.current = true
-        sfx('splash')
+        if (busy.current) return
+        busy.current = true
+        game.harborCast = performance.now()
+        window.setTimeout(() => sfx('splash'), CAST_MS * 0.45)
         window.setTimeout(() => {
-          if (!fishing.current) return
-          fishing.current = false
+          if (!busy.current) return
+          busy.current = false
           stamp(def.id, `The Harbor: you caught ${catches[Math.floor(Math.random() * catches.length)]}.`)
-        }, 1800 + Math.random() * 2200)
+        }, CAST_MS)
       },
     },
   ])

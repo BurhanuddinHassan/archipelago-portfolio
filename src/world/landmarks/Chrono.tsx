@@ -63,7 +63,7 @@ function clockTower(accent: THREE.Color) {
   p.push(box([0.82, 3.7, 1.6], brick, [-0.41, 2.15, 0]))
   p.push(box([0.82, 3.7, 1.6], STEEL, [0.41, 2.15, 0]))
   for (let i = 0; i < 8; i++) p.push(box([0.84, 0.04, 1.62], brickDark, [-0.41, 0.6 + i * 0.42, 0]))
-  for (const x of [0.22, 0.6]) g.push(box([0.06, 3.1, 0.03], accent, [x, 2.0, 0.81]))
+  for (const x of [0.22, 0.6]) g.push(box([0.06, 1.85, 0.03], accent, [x, 1.38, 0.81])) // stop below the clock face
   p.push(box([0.3, 0.5, 0.05], hex('#2b2730'), [-0.42, 1.2, 0.81])) // an old window on the 1944 half
   p.push(box([1.9, 0.2, 1.9], C.stoneDark, [0, 4.08, 0]))
   p.push(cone(1.35, 1.4, hex('#4a3f6b'), [0, 4.88, 0], [0, Math.PI / 4, 0], 4))
