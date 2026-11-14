@@ -48,6 +48,18 @@ const savedGraphics = (): Graphics => {
   }
 }
 
+/**
+ * Scrolls the tour to a stop. A neighbouring stop scrolls smoothly (the ship sails there as you watch); a far one jumps,
+ * and the ship flies straight to it instead of visiting every island in between.
+ */
+export function travelTo(id: string) {
+  const el = document.getElementById(id), sections = [...document.querySelectorAll<HTMLElement>('.tour section')]
+  if (!el) return
+  const here = useStore.getState().activeStop, there = sections.indexOf(el)
+  el.scrollIntoView({ behavior: there >= 0 && Math.abs(there - here) > 1 ? 'instant' : 'smooth' })
+  history.replaceState(null, '', `#${id}`)
+}
+
 export const useStore = create<State>((set, get) => ({
   mode: 'tour',
   sound: soundEnabled(),

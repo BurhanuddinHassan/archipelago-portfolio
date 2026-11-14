@@ -1,3 +1,4 @@
+import { travelTo } from '../store'
 import { forwardRef, useState, type ReactNode } from 'react'
 import { useIsMobile } from '../hooks'
 import { journey, profile, projectBySlug, skills, projects } from '../content'
@@ -21,7 +22,7 @@ export const Section = forwardRef<HTMLElement, { id: string; eyebrow?: string; a
   ),
 )
 
-const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+const jump = (id: string) => travelTo(id)
 
 export function HomeStop() {
   return (

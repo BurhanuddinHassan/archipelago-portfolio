@@ -5,7 +5,7 @@ import { Section, stopContent } from './tour/Sections'
 import { islandById } from './world/layout'
 import { GEARS_PER_ISLAND, ISLAND_COUNT, usePlay } from './world/play'
 import { initAudio, setNight } from './audio'
-import { useStore } from './store'
+import { useStore, travelTo } from './store'
 import { profile } from './content'
 
 const World = lazy(() => import('./world/World'))
@@ -75,6 +75,18 @@ export default function App() {
       window.removeEventListener('pointerdown', start)
       window.removeEventListener('keydown', start)
     }
+  }, [])
+  useEffect(() => {
+    // every in-page link (progress rail, name, chatbot sources) travels through travelTo
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement).closest?.('a[href^="#"]') as HTMLAnchorElement | null
+      const id = a?.getAttribute('href')?.slice(1)
+      if (!id || !document.getElementById(id) || e.metaKey || e.ctrlKey) return
+      e.preventDefault()
+      travelTo(id)
+    }
+    document.addEventListener('click', onClick)
+    return () => document.removeEventListener('click', onClick)
   }, [])
   const mode = useStore((s) => s.mode)
   // ?film: every piece of UI is hidden so the 3D scene can be screen-recorded clean (promo video footage).

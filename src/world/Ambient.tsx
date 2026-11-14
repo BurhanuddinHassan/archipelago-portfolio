@@ -334,8 +334,8 @@ export function Waterfalls({ night }: { night: boolean }) {
               '  float white = (streak * 0.6 + flow * 0.25) * mix(0.06, 1.0, drop);', // calm on the grass, white water once it falls
               '  vec3 col = mix(vec3(0.45, 0.78, 0.9), vec3(1.0), white);',
                             '  float sheet = (1.0 - smoothstep(0.62, 1.0, edge)) * (0.6 + streak * 0.35);',
-              '  float flat = 1.0 - smoothstep(0.86, 1.0, edge);', // pond and stream are opaque with soft banks, so where they overlap they read as one
-              '  float alpha = mix(flat, sheet, drop) * (1.0 - smoothstep(0.4, 1.0, fall));',
+              '  float calm = 1.0 - smoothstep(0.86, 1.0, edge);', // (not named "flat": that is a reserved word in GLSL) pond and stream are opaque with soft banks, so where they overlap they read as one
+              '  float alpha = mix(calm, sheet, drop) * (1.0 - smoothstep(0.4, 1.0, fall));',
               '  gl_FragColor = vec4(col * uDim, alpha);',
               '  #include <colorspace_fragment>',
               '}',

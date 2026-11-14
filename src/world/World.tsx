@@ -353,8 +353,11 @@ function SkyDome({ top, horizon }: { top: string; horizon: string }) {
     uniforms.top.value.set(top)
     uniforms.horizon.value.set(horizon)
   }, [top, horizon, uniforms])
+  // the dome travels with the camera, so its edge can never come into view however far the ship sails
+  const dome = useRef<THREE.Mesh>(null)
+  useFrame(({ camera }) => dome.current?.position.copy(camera.position))
   return (
-    <mesh scale={340} renderOrder={-1}>
+    <mesh ref={dome} scale={340} renderOrder={-1} frustumCulled={false}>
       <sphereGeometry args={[1, 32, 16]} />
       <shaderMaterial
         side={THREE.BackSide}
@@ -419,6 +422,8 @@ export type PilotPose = 'ground' | 'walk' | 'board' | 'sail' | 'land' | 'cheer' 
 function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; blobShadow: boolean; colliders: [number, number, number][][]; islets: [number, number, number, number][] }) {
   const adventure = useMemo(() => createAdventure(colliders, islets), [colliders, islets])
   const heard = useRef<PilotPose>('ground')
+  const seenP = useRef(NaN), wasAdventure = useRef(false)
+  const direct = useRef<{ t: number; ship: THREE.Vector3; pilot: THREE.Vector3; to: number } | null>(null)
   const inAdventure = useStore((s) => s.mode === 'adventure')
   useEffect(() => (inAdventure ? attachInput() : undefined), [inAdventure])
   const stands = useMemo(() => STOPS.map((s) => new THREE.Vector3(...stopAnchor(s))), [])
@@ -473,18 +478,59 @@ function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; bl
       if (lanternRef.current) lanternRef.current.color.set(night ? '#ffd27a' : '#f3d9a4')
       orbit.current.yaw = 0
       orbit.current.pitch = 0
+      wasAdventure.current = true
       return
     }
     adventure.reset()
+    if (wasAdventure.current) seenP.current = NaN // coming back from Adventure Mode is not a jump
+    wasAdventure.current = false
 
     const faceCam = Math.atan2(camera.position.x - pl.position.x, camera.position.z - pl.position.z)
     const bob = Math.sin(time * 1.3) * 0.08
     const roll = Math.sin(time * 0.9) * 0.03
 
-    // ---- ship: moored beside the stop, or sailing an arc to the next mooring
     let sailing = false
     let shipYaw = MOOR_YAW
     let pitch = 0
+
+    // ---- a jump to a far stop (the progress rail, a link): fly straight there instead of touring every island between
+    if (!Number.isNaN(seenP.current) && Math.abs(p - seenP.current) > 0.9 && !direct.current) direct.current = { t: 0, ship: sh.position.clone(), pilot: pl.position.clone(), to: Math.min(last, Math.round(p)) }
+    seenP.current = p
+    const d = direct.current
+    if (d) {
+      d.t += Math.min(dt, 0.05) / 2.1 // capped per frame, so a slow frame cannot skip the flight
+      const M = moors[d.to], k = smooth(0, 1, Math.min(1, d.t)), dist = d.ship.distanceTo(M)
+      tmp.shipPos.lerpVectors(d.ship, M, k)
+      tmp.shipPos.y += Math.sin(Math.PI * k) * (3 + dist * 0.08)
+      const turn = smooth(0, 0.15, k) * (1 - smooth(0.85, 1, k))
+      shipYaw = lerpAngle(MOOR_YAW, Math.atan2(M.x - d.ship.x, M.z - d.ship.z), turn)
+      pitch = -Math.cos(Math.PI * k) * 0.12 * turn
+      sh.position.set(tmp.shipPos.x, tmp.shipPos.y + bob, tmp.shipPos.z)
+      sh.rotation.set(pitch, shipYaw, roll, 'YXZ')
+      sh.updateMatrixWorld()
+      tmp.seat.copy(SEAT).applyMatrix4(sh.matrixWorld)
+      if (d.t < 0.14) {
+        // hop aboard from wherever he was
+        pose.current = 'board'
+        const h = smooth(0, 1, d.t / 0.14)
+        tmp.pos.lerpVectors(d.pilot, tmp.seat, h)
+        tmp.pos.y += Math.sin(Math.PI * h) * 1.0
+        pl.rotation.set(0, lerpAngle(faceCam, shipYaw, h), 0)
+      } else if (d.t < 0.86) {
+        sailing = true
+        pose.current = 'sail'
+        tmp.pos.copy(tmp.seat)
+        pl.quaternion.copy(sh.quaternion)
+      } else {
+        pose.current = 'land'
+        const h = smooth(0, 1, (d.t - 0.86) / 0.14)
+        tmp.pos.lerpVectors(tmp.seat, stands[d.to], h)
+        tmp.pos.y += Math.sin(Math.PI * h) * 1.0
+        pl.rotation.set(0, lerpAngle(shipYaw, faceCam, h), 0)
+      }
+      if (d.t >= 1) direct.current = null
+    } else {
+    // ---- ship: moored beside the stop, or sailing an arc to the next mooring
     if (t > 0 && t >= HOP && t <= 1 - HOP) {
       sailing = true
       const u = smooth(0, 1, (t - HOP) / (1 - 2 * HOP))
@@ -525,9 +571,10 @@ function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; bl
       tmp.pos.y += Math.sin(Math.PI * k) * 1.0
       pl.rotation.set(0, lerpAngle(shipYaw, faceCam, k), 0)
     }
+    }
     pl.position.copy(tmp.pos)
     player.pos.copy(tmp.pos)
-    player.grounded = t <= 0 || t > 0.98 // standing on an island (or a hair from touching down)
+    player.grounded = !d && (t <= 0 || t > 0.98) // standing on an island (or a hair from touching down)
     if (shadow.current) shadow.current.visible = blobShadow && pose.current === 'ground'
     if (!pilotLoaded && pose.current === 'ground') pl.position.y += Math.sin(time * 2) * 0.03
 

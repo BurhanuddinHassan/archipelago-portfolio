@@ -108,6 +108,7 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
 
   function begin(c: AdventureCtx) {
     s.ready = true
+    dock = null // a docking spot left over from an earlier visit would pull the ship away to another island
     s.on = 'foot'
     s.island = Math.max(0, ISLANDS.findIndex((d) => d.id === c.start.island))
     pos.copy(c.start.stand)
