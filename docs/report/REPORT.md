@@ -138,6 +138,18 @@ the tour, and **P** (or a controller's Start button) toggles Adventure Mode for 
 
 ![A frame recorded in filming mode.](img/film.jpg)
 
+### 2.7 Sound and things to do
+
+Sound runs through the Web Audio API (`src/audio.ts`). Wind, campfire and stream are short looped recordings; the
+campfire and waterfalls get louder as the Pilot approaches, and the fires only burn at night. The ship's engine,
+a quiet generative melody, crickets at night and every effect (footsteps, jumps, pickups, the stamp fanfare) are
+synthesised in code. Browsers block audio until the first click or key press, so nothing plays before that, and a
+button in the top bar mutes everything.
+
+In Adventure Mode each island has one activity that earns a stamp (for example: carry the future tech past the
+soldier on Chrono Rebellion, uncover what the scared villager is hiding on Behind the Smile, sprint the street on
+Paper Plane Dash) and five golden gears to find. Progress is saved in the browser.
+
 ---
 
 ## 3. Echo: the RAG chatbot
@@ -276,6 +288,9 @@ tests; that is the first item in future work.
 | Islands, sky, clouds, ship, all landmarks | Generated in code for this project | — |
 | Pilot avatar | Base mesh from an AI image-to-3D tool, from my photo; rigged and animated by me in Blender | Mine |
 | Behind the Smile mask | My own Blockbench model from the game, converted to code | Mine |
+| Sound: wind, fireplace | felix.blume, inchadney (freesound.org) | CC0 |
+| Sound: stream | mystiscool (freesound.org) | CC BY 3.0 |
+| Sound: ship, melody, effects | Synthesised in code | — |
 | Draco decoder | Google | Apache 2.0 |
 | Fonts: Inter, Fredoka | Google Fonts | SIL Open Font License |
 | Language model | Google Gemini API | Google API terms |
@@ -289,7 +304,6 @@ reviewed and tested the results, and made the content. I can explain each system
 ## 9. Limitations and future work
 
 - Add automated tests (unit tests for retrieval and validation; an end-to-end smoke test of the tour).
-- Sound: ambient wind and water, footsteps, ship engine, island-specific effects.
 - More interaction on each island in Adventure Mode (small mini-games based on each project).
 - Collision uses circles, so long or wide objects have loose edges.
 - The in-memory rate limits are per server instance; a shared store would make them exact under heavy traffic.

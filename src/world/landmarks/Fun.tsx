@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { CHRONO, DASH, HARBOR, HOME_PIECES, JOURNEY, MERGE, SMILE, SUNK, WORKSHOP, groundY, type IslandDef } from '../layout'
+import { CHRONO, DASH, FACE_YAW, HARBOR, HOME_PIECES, JOURNEY, MERGE, SMILE, SUNK, WORKSHOP, groundY, type IslandDef } from '../layout'
 import { player } from '../player'
-import { CAST_MS, GEARS_PER_ISLAND, addSpots, emote, game, onCaught, usePlay, type Spot } from '../play'
+import { CAST_MS, GEARS_PER_ISLAND, addSpots, emote, game, onCaught, sitAt, usePlay, type Spot } from '../play'
 import { useStore } from '../../store'
 import { sfx } from '../../audio'
 import { profile } from '../../content'
@@ -21,6 +21,12 @@ const stamp = (island: string, m: string) => usePlay.getState().stamp(island, m)
 /** Registers this island's action spots for as long as the island is on screen. */
 function useSpots(island: string, make: () => Omit<Spot, 'island'>[]) {
   useEffect(() => addSpots(make().map((s) => ({ ...s, island }))), []) // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/** Where a point in a landmark's own space (x right, z towards the camera) ends up on the island. */
+function placed(origin: XZ, turn: number, scale: number, x: number, z: number): XZ {
+  const a = FACE_YAW + turn, c = Math.cos(a), s = Math.sin(a)
+  return [origin[0] + (x * c + z * s) * scale, origin[1] + (-x * s + z * c) * scale]
 }
 
 /* ---------------- golden gears ---------------- */
@@ -59,7 +65,7 @@ export function Gears({ def, at }: { def: IslandDef; at: [number, number, number
 function HomeFun({ def }: { def: IslandDef }) {
   const h = HOME_PIECES
   useSpots(def.id, () => [
-    { xz: h.campfire, reach: 2.4, label: () => 'Sit by the fire', use: () => (emote('sit'), stamp(def.id, 'Home Isle: you took a break by the fire.')) },
+    { xz: h.campfire, reach: 2.6, label: () => 'Sit by the fire', use: () => (sitAt(def.id, placed(h.campfire, 0.4, 1, 1.3, 0.4), h.campfire), stamp(def.id, 'Home Isle: you took a break by the fire.')) }, // on the log seat
     { xz: h.arcade, reach: 2.0, label: () => 'Play Fruit Slice 3D (opens a new tab)', use: () => profile.highlight?.url && window.open(profile.highlight.url, '_blank', 'noopener') },
     { xz: h.postbox, reach: 1.9, label: () => 'Send Burhanuddin a message', use: () => useStore.setState({ advRead: 'contact' }) },
     { xz: h.screen, reach: 3.6, label: () => 'Watch the trailer', use: () => useStore.setState({ advRead: 'cinema' }) },
@@ -230,7 +236,7 @@ function WorkshopFun({ def }: { def: IslandDef }) {
 }
 
 function JourneyFun({ def }: { def: IslandDef }) {
-  useSpots(def.id, () => [{ xz: JOURNEY.camp, reach: 3.0, label: () => 'Take a seat by the fire', use: () => (emote('sit'), stamp(def.id, 'Journey Isle: this seat was saved for your team.')) }])
+  useSpots(def.id, () => [{ xz: JOURNEY.camp, reach: 3.0, label: () => 'Take a seat by the fire', use: () => (sitAt(def.id, placed(JOURNEY.camp, 0.2, 1.15, 2.0, 0.7), placed(JOURNEY.camp, 0.2, 1.15, 0.9, 0.5)), stamp(def.id, 'Journey Isle: this seat was saved for your team.')) }])
   return null
 }
 

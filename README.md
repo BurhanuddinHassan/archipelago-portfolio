@@ -143,6 +143,9 @@ The full write-up is in the project report.
 - **The Pilot character**: base mesh generated from a photo with an AI image-to-3D tool, then rigged and animated
   in Blender by Burhanuddin. Texture atlas re-packed by `tools/rebake-character.mjs`.
 - **Behind the Smile mask**: Burhanuddin's own model from the game (Blockbench), converted to code in `maskData.ts`.
+- **Sound recordings** (`public/audio/`, trimmed and looped from the [AmbientSounds](https://github.com/Muges/ambientsounds) collection):
+  *Wind* by felix.blume (CC0), *Fireplace* by inchadney (CC0), *Stream* by mystiscool (CC BY 3.0), all from freesound.org.
+  The ship, melody, crickets and effects are synthesised in code (`src/audio.ts`).
 - **Draco decoder**: Google Draco, Apache 2.0 (`public/draco/`).
 - **Fonts**: Inter and Fredoka, SIL Open Font License.
 - **AI assistance**: much of the code was written with an AI coding assistant (Claude) under Burhanuddin's direction,

@@ -177,7 +177,11 @@ export function createAdventure(colliders: Circle[][], islets: [number, number, 
     } else if (s.on === 'foot') {
       // ---- walking: move relative to the camera, slide along anything solid
       if (game.teleport) {
-        if (game.teleport.island === def.id) pos.set(centre(s.island)[0] + game.teleport.xz[0], pos.y, centre(s.island)[2] + game.teleport.xz[1])
+        if (game.teleport.island === def.id) {
+          const { xz, face } = game.teleport
+          pos.set(centre(s.island)[0] + xz[0], pos.y, centre(s.island)[2] + xz[1])
+          if (face) s.yaw = Math.atan2(face[0] - xz[0], face[1] - xz[1])
+        }
         game.teleport = null
       }
       let [lx, lz] = local(s.island, pos)

@@ -107,13 +107,18 @@ export const game = {
   /** An animation to hold until the Pilot moves (sit) or the time runs out (cheer). */
   emote: null as null | { pose: 'cheer' | 'sit'; left: number },
   /** Put the Pilot somewhere on his current island (island-local), e.g. after being caught. */
-  teleport: null as null | { island: string; xz: [number, number] },
+  teleport: null as null | { island: string; xz: [number, number]; face?: [number, number] },
   /** Merge Defence: a power-up (0 shield, 1 rapid fire, 2 fire power) the player just triggered at a shrine. */
   mergePower: -1,
   /** The Harbor: when the crane's line was last cast (performance.now()). */
   harborCast: -1e9,
 }
 export const emote = (pose: 'cheer' | 'sit', seconds = 2.4) => void (game.emote = { pose, left: pose === 'sit' ? Infinity : seconds })
+/** Sits the Pilot down on a seat (island-local position), facing a point such as the fire. */
+export function sitAt(island: string, seat: [number, number], face: [number, number]) {
+  game.teleport = { island, xz: seat, face }
+  emote('sit')
+}
 
 const caughtListeners = new Set<(island: string) => void>()
 export const onCaught = (fn: (island: string) => void) => {

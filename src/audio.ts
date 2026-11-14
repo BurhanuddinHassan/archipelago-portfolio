@@ -1,9 +1,10 @@
 import { HOME_PIECES, ISLANDS, JOURNEY, islandById, waterfallSpot } from './world/layout'
 
 /**
- * All sound, made in the browser with the Web Audio API: no audio files to download or license.
- *  - Ambience: wind, a slow generative melody, crickets at night.
- *  - Places: campfires crackle and waterfalls rush, louder as the Pilot gets closer.
+ * All sound, through the Web Audio API.
+ *  - Ambience: a wind recording, a slow generative melody, crickets at night.
+ *  - Places: campfire and stream recordings, louder as the Pilot gets closer (the fires only at night).
+ *  - Recordings are in public/audio (credits in the README); the ship, melody and effects are synthesised.
  *  - The ship: an engine hum that follows its speed.
  *  - Effects: footsteps, jump and landing, hopping aboard, gear pickups, stamps, buttons.
  * Browsers only allow sound after the visitor has clicked or pressed a key, so nothing plays before that.
@@ -18,6 +19,7 @@ let night = false
 const level = { ship: null as GainNode | null, fire: null as GainNode | null, water: null as GainNode | null, crickets: null as GainNode | null }
 let shipOsc: OscillatorNode[] = []
 let fireLevel = 0
+let synthFire = false
 
 const VOLUME = 0.5
 
@@ -41,6 +43,23 @@ const emitters: { kind: 'fire' | 'water'; x: number; y: number; z: number; range
   return out
 })()
 
+/** Loads a recording and loops it into `to`. If it can't be loaded, `fallback` builds a synthetic stand-in. */
+function bed(url: string, to: AudioNode, fallback: () => void) {
+  fetch(url)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+    .then((data) => ctx!.decodeAudioData(data))
+    .then((buffer) => {
+      const src = ctx!.createBufferSource()
+      src.buffer = buffer
+      src.loop = true
+      // MP3s carry a few milliseconds of silence at each end: loop just inside them
+      src.loopStart = 0.03
+      src.loopEnd = buffer.duration - 0.06
+      src.connect(to)
+      src.start()
+    })
+    .catch(fallback)
+}
 function loop(buffer: AudioBuffer) {
   const src = ctx!.createBufferSource()
   src.buffer = buffer
@@ -75,18 +94,10 @@ export function initAudio() {
   const d = noise.getChannelData(0)
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1
 
-  // wind: band-passed noise that slowly swells and shifts
-  const wind = filter('bandpass', 420, 0.5), windGain = gain(0.02)
-  loop(noise).connect(wind).connect(windGain)
-  const swell = ctx.createOscillator(), swellDepth = ctx.createGain(), drift = ctx.createOscillator(), driftDepth = ctx.createGain()
-  swell.frequency.value = 0.07
-  swellDepth.gain.value = 0.011
-  swell.connect(swellDepth).connect(windGain.gain)
-  drift.frequency.value = 0.045
-  driftDepth.gain.value = 180
-  drift.connect(driftDepth).connect(wind.frequency)
-  swell.start()
-  drift.start()
+  // wind: a field recording, looped (falls back to filtered noise if the file can't be loaded)
+  const windGain = gain(0)
+  bed('/audio/wind.mp3', windGain, () => loop(noise).connect(filter('bandpass', 420, 0.5)).connect(windGain))
+  windGain.gain.setTargetAtTime(0.42, ctx.currentTime, 2)
 
   // the ship: two detuned low oscillators and some propeller wash
   level.ship = gain(0)
@@ -107,11 +118,14 @@ export function initAudio() {
   chop.connect(chopDepth).connect(washGain.gain)
   chop.start()
 
-  // waterfalls and campfires: one voice each, as loud as the nearest one deserves
+  // waterfalls and campfires: one recording each, as loud as the nearest one deserves
   level.water = gain(0)
-  loop(noise).connect(filter('highpass', 250)).connect(filter('lowpass', 2400)).connect(level.water)
+  bed('/audio/water.mp3', level.water, () => loop(noise).connect(filter('highpass', 250)).connect(filter('lowpass', 2400)).connect(level.water!))
   level.fire = gain(0)
-  loop(noise).connect(filter('lowpass', 520)).connect(level.fire)
+  bed('/audio/fire.mp3', level.fire, () => {
+    synthFire = true
+    loop(noise).connect(filter('lowpass', 520)).connect(level.fire!)
+  })
 
   // crickets: a high tone chopped fast, in bursts
   level.crickets = gain(0)
@@ -136,7 +150,7 @@ export function initAudio() {
   burst.start()
 
   // music: slow notes from a five-note scale through an echo
-  musicBus = gain(0.045)
+  musicBus = gain(0.07)
   const echo = ctx.createDelay(1), feedback = ctx.createGain()
   echo.delayTime.value = 0.42
   feedback.gain.value = 0.38
@@ -184,7 +198,7 @@ function pluck(freq: number, vol: number, delay = 0) {
   })
 }
 function crackle() {
-  if (!ctx || !enabled || fireLevel < 0.03 || Math.random() > 0.45) return
+  if (!ctx || !enabled || !synthFire || fireLevel < 0.03 || Math.random() > 0.45) return
   burstOf(0.012 + Math.random() * 0.03, 1800 + Math.random() * 3500, fireLevel * (0.25 + Math.random() * 0.5), 'highpass')
 }
 
@@ -286,8 +300,8 @@ export function listenAt(x: number, y: number, z: number) {
   }
   if (!night) fire = 0 // the campfires only burn at night
   fireLevel = fire
-  ease(level.fire, fire * 0.07)
-  ease(level.water, water * 0.08)
+  ease(level.fire, fire * 0.9)
+  ease(level.water, water * 0.55)
 }
 
 export function setNight(v: boolean) {
