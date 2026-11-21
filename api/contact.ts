@@ -21,6 +21,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const oneLine = (s: string) => s.replace(/[\r\n]+/g, ' ').trim()
 
 export async function POST(req: Request) {
+  if (!(req.headers.get('content-type') ?? '').includes('application/json') || Number(req.headers.get('content-length') ?? 0) > 20_000) return json({ error: 'Invalid request.' }, 400)
   let b: Record<string, unknown>
   try {
     b = await req.json()
@@ -40,11 +41,19 @@ export async function POST(req: Request) {
   const errors = validateContact(f)
   if (Object.keys(errors).length) return json({ error: 'Please fix the highlighted fields.', errors }, 422)
 
+  // Turnstile fails closed on the live site: if the secret is missing there, the form refuses rather than sending unchecked mail
   const turnstileSecret = process.env.TURNSTILE_SECRET_KEY
+  if (!turnstileSecret && process.env.VERCEL_ENV === 'production') return json({ error: 'The contact form is not configured yet.', notConfigured: true }, 503)
   if (turnstileSecret) {
-    const form = new URLSearchParams({ secret: turnstileSecret, response: str('token'), remoteip: ip })
-    const check = (await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form }).then((r) => r.json()).catch(() => ({ success: false }))) as { success?: boolean }
-    if (!check.success) return json({ error: 'The spam check failed. Please refresh the page and try again.' }, 403)
+    const token = str('token')
+    if (!token || token.length > 2048) return json({ error: 'Please complete the spam check.' }, 403)
+    const form = new URLSearchParams({ secret: turnstileSecret, response: token, remoteip: ip })
+    const check = (await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form, signal: AbortSignal.timeout(8000) })
+      .then((r) => r.json())
+      .catch(() => ({ success: false }))) as { success?: boolean; hostname?: string }
+    // a token solved on someone else's page that reuses this site key doesn't count
+    const host = process.env.SITE_HOSTNAME ?? 'burhanuddin-hassan.vercel.app'
+    if (!check.success || (process.env.VERCEL_ENV === 'production' && check.hostname && check.hostname !== host)) return json({ error: 'The spam check failed. Please refresh the page and try again.' }, 403)
   }
 
   const key = process.env.RESEND_API_KEY

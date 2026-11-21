@@ -91,3 +91,52 @@ describe('contact form server: spam checks', () => {
     expect(JSON.parse(String(fetchSpy.mock.calls[0][1]!.body)).subject).not.toMatch(/[\r\n]/)
   })
 })
+
+describe('contact form server: hardening', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+    vi.stubEnv('RESEND_API_KEY', 're_test')
+  })
+
+  it('fails closed on the live site when the Turnstile secret is missing', async () => {
+    vi.stubEnv('TURNSTILE_SECRET_KEY', '')
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    expect((await send(good)).status).toBe(503)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('refuses a request with no Turnstile token without asking Cloudflare', async () => {
+    vi.stubEnv('TURNSTILE_SECRET_KEY', 'secret')
+    const fetchSpy = vi.fn()
+    vi.stubGlobal('fetch', fetchSpy)
+    expect((await send(good)).status).toBe(403)
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('refuses a token solved on another site that reuses the site key', async () => {
+    vi.stubEnv('TURNSTILE_SECRET_KEY', 'secret')
+    vi.stubEnv('VERCEL_ENV', 'production')
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, hostname: 'evil.example' })))
+    vi.stubGlobal('fetch', fetchSpy)
+    expect((await send({ ...good, token: 'tok' })).status).toBe(403)
+    expect(fetchSpy).toHaveBeenCalledTimes(1) // Cloudflare only; no email sent
+  })
+
+  it('refuses non-JSON bodies', async () => {
+    const res = await POST(new Request('http://test/api/contact', { method: 'POST', headers: { 'content-type': 'text/plain', 'x-forwarded-for': '10.9.9.9' }, body: 'hi' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('cannot inject email headers through the subject or name', async () => {
+    vi.stubEnv('TURNSTILE_SECRET_KEY', '')
+    const fetchSpy = vi.fn().mockResolvedValue(new Response('{}'))
+    vi.stubGlobal('fetch', fetchSpy)
+    await send({ ...good, name: 'Eve\r\nBcc: a@b.com', subject: 'Hi\nBcc: victim@x.com', message: '<script>alert(1)</script> hello there' })
+    const sent = JSON.parse(fetchSpy.mock.calls[0][1].body)
+    expect(sent.subject).not.toMatch(/[\r\n]/)
+    expect(sent.html).not.toContain('<script>')
+  })
+})
