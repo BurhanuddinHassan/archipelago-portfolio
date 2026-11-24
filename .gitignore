@@ -4,3 +4,9 @@ dist
 .env.local
 .vercel
 .DS_Store
+# loose working files at the repo root (the committed copies live in source-files/)
+/*.aep
+/*.blend
+/*.blend1
+/*.mp4
+*.blend1

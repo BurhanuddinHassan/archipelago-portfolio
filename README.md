@@ -9,6 +9,9 @@ walk and sail the archipelago yourself, with a keyboard or a game controller.
 
 Built for the Web3D course at NED University, and used as a real job-hunting portfolio.
 
+**Promo video (38 s):** https://youtu.be/LX2jkcONnhI. It also plays on the site's Trailer stop.
+**Source files** (After Effects project, rendered promo, Blender character file): [`source-files/`](source-files/).
+
 ---
 
 ## Run it
@@ -101,6 +104,10 @@ src/
     input.ts             keyboard + gamepad input
     landmarks/           one diorama per island (all modelled in code)
   tour/                  the text panels, Harbor filter/search, Echo, contact form
+source-files/            for reviewers only, never deployed (see .vercelignore)
+  promo.aep              After Effects project of the promo video
+  promo-final.mp4        the rendered promo (1080p, 38 s)
+  Chibi_ME.blend         Blender file of the Pilot character
 public/
   models/                chibi_character.glb (the Pilot), props.glb (nature props)
   draco/                 Draco decoder
@@ -149,6 +156,8 @@ The full write-up is in the project report.
   The ship, melody, crickets and effects are synthesised in code (`src/audio.ts`).
 - **Draco decoder**: Google Draco, Apache 2.0 (`public/draco/`).
 - **Fonts**: Inter and Fredoka, SIL Open Font License.
+- **Promo video**: assembled in Adobe After Effects (`source-files/promo.aep`). Fonts: Playfair Display, Caveat,
+  IM Fell English and Special Elite (SIL Open Font License). Gameplay footage from Burhanuddin's own games.
 - **AI assistance**: much of the code was written with an AI coding assistant (Claude) under Burhanuddin's direction,
   design decisions and review.
 
