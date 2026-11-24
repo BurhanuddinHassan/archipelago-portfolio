@@ -24,6 +24,8 @@ export type Project = {
 }
 
 export type Profile = {
+  /** YouTube video id of the promo trailer (shown on the Cinema stop); leave empty until it is uploaded. */
+  trailer?: string
   name: string
   headline: string
   tagline?: string

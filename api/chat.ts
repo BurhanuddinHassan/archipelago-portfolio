@@ -48,13 +48,25 @@ Rules:
 type Msg = { role: 'user' | 'assistant'; content: string }
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
 
-function sourcesFrom(answer: string, passages: Passage[]) {
-  const cited = [...new Set([...answer.matchAll(/\[(\d+)\]/g)].map((m) => Number(m[1]) - 1))].filter((i) => passages[i])
-  const seen = new Set<string>()
-  return cited
-    .map((i) => passages[i])
-    .filter((p) => (seen.has(p.title.split(':')[0]) ? false : (seen.add(p.title.split(':')[0]), true)))
-    .map((p) => ({ title: p.title.split(':')[0], href: p.href }))
+/**
+ * Turns the model's passage numbers into source numbers: passages from the same section share one source,
+ * and the [n] in the answer are rewritten so [1] is the first source listed, [2] the second, and so on.
+ */
+export function cite(answer: string, passages: Passage[]) {
+  const sources: { title: string; href: string }[] = []
+  const numberOf = new Map<number, number>()
+  for (const m of answer.matchAll(/\[(\d+)\]/g)) {
+    const i = Number(m[1]) - 1
+    if (!passages[i] || numberOf.has(i)) continue
+    const title = passages[i].title.split(':')[0]
+    let k = sources.findIndex((s) => s.title === title)
+    if (k < 0) k = sources.push({ title, href: passages[i].href }) - 1
+    numberOf.set(i, k + 1)
+  }
+  const text = answer
+    .replace(/\[(\d+)\]/g, (_, n) => (numberOf.has(Number(n) - 1) ? `[${numberOf.get(Number(n) - 1)}]` : ''))
+    .replace(/(\[\d+\])(?:\1)+/g, '$1') // "[1][1]" after merging becomes "[1]"
+  return { answer: text, sources }
 }
 
 function fallback(passages: Passage[]) {
@@ -134,7 +146,7 @@ async function answer(req: Request, body: { question?: unknown; history?: unknow
     const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }
     const text = data.choices?.[0]?.message?.content?.trim()
     if (!text) return json(fallback(passages))
-    return json({ answer: text, sources: sourcesFrom(text, passages) })
+    return json(cite(text, passages))
   } catch (e) {
     console.error(llm.name, 'error', e)
     return json(fallback(passages))

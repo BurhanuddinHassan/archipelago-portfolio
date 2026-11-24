@@ -120,3 +120,14 @@ describe('Echo hardening', () => {
     expect(await res.text()).not.toContain('test"')
   })
 })
+
+describe('Echo citations', () => {
+  it('renumbers citations to match the listed sources', async () => {
+    const { cite } = await import('../api/chat')
+    const P = (title: string, href: string) => ({ title, href, text: '' }) as never
+    const passages = [P('Games: Behind the Smile', '#harbor'), P('Games: Chrono', '#harbor'), P('Contact: email', '#contact'), P('Skills', '#workshop'), P('Contact: itch', '#contact')]
+    const r = cite('He made games [1][2]. Reach him here [5] or [9].', passages)
+    expect(r.sources.map((s) => s.title)).toEqual(['Games', 'Contact'])
+    expect(r.answer).toBe('He made games [1]. Reach him here [2] or .')
+  })
+})

@@ -46,6 +46,9 @@ h2 { font-size: clamp(1.7rem, 3vw, 2.3rem); }
 h3 { font-size: 1.1rem; }
 a { color: inherit; }
 :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 6px; }
+/* controller highlight (padnav.ts): stronger than the keyboard ring so it reads on a projector */
+.pad-focus { outline: 4px solid var(--brand) !important; outline-offset: 3px; border-radius: 8px; box-shadow: 0 0 0 8px color-mix(in srgb, var(--brand) 30%, transparent); }
+.rail a.pad-focus .rail-label { opacity: 1; transform: translate(0, -50%); }
 button { font: inherit; color: inherit; cursor: pointer; }
 
 /* ---------- layout ---------- */

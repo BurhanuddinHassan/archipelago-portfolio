@@ -202,9 +202,13 @@ export function CinemaStop() {
     <>
       <h2>The trailer</h2>
       <p className="lead">A 45-second tour of who I am and what I build.</p>
-      <div className="video video-placeholder">
-        <span>Trailer in production</span>
-      </div>
+      {profile.trailer ? (
+        <LiteYouTube id={profile.trailer} title={`${profile.name}: portfolio trailer`} />
+      ) : (
+        <div className="video video-placeholder">
+          <span>Trailer in production</span>
+        </div>
+      )}
     </>
   )
 }

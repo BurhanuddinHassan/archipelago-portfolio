@@ -104,7 +104,7 @@ export default function Echo() {
                     {t.sources.map((s, k) => (
                       <li key={k}>
                         <a href={s.href} onClick={() => window.matchMedia('(max-width: 820px)').matches && setOpen(false)}>
-                          {s.title} ↗
+                          <sup className="cite">{k + 1}</sup> {s.title} ↗
                         </a>
                       </li>
                     ))}

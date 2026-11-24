@@ -18,6 +18,7 @@ import { useStore } from '../store'
 import { player } from './player'
 import { buildColliders, createAdventure } from './adventure'
 import { attachInput } from './input'
+import { padLook } from '../padnav'
 import { listenAt, setShip, sfx } from '../audio'
 
 const PALETTE = {
@@ -592,6 +593,12 @@ function PilotRig({ night, blobShadow, colliders, islets }: { night: boolean; bl
 
     // ---- camera follows the Pilot with damping; drag rotates the follow offset, then drifts back
     const o = orbit.current
+    if (padLook.active) {
+      // controller right stick: the same look-around as dragging
+      o.yaw = Math.max(-2.2, Math.min(2.2, o.yaw - padLook.x * dt))
+      o.pitch = Math.max(-0.6, Math.min(0.5, o.pitch - padLook.y * dt))
+      o.lastInput = time
+    }
     if (!o.dragging && (time - o.lastInput > 2.5 || sailing)) {
       const ease = 1 - Math.exp(-dt * 2)
       o.yaw += (0 - o.yaw) * ease

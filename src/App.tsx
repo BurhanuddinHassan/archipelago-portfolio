@@ -7,6 +7,7 @@ import { GEARS_PER_ISLAND, ISLAND_COUNT, usePlay } from './world/play'
 import { initAudio, setNight } from './audio'
 import { useStore, travelTo } from './store'
 import { profile } from './content'
+import { startPadNav } from './padnav'
 
 const World = lazy(() => import('./world/World'))
 
@@ -90,27 +91,17 @@ export default function App() {
   }, [])
   const mode = useStore((s) => s.mode)
   // ?film: every piece of UI is hidden so the 3D scene can be screen-recorded clean (promo video footage).
-  // Scrolling still drives the tour; Adventure Mode is toggled with the P key or a controller's Start button.
+  // Scrolling still drives the tour; Adventure Mode is toggled with the P key or a controller's Start button (padnav.ts).
   const film = useMemo(() => new URLSearchParams(window.location.search).has('film'), [])
   useEffect(() => {
     document.documentElement.classList.toggle('film', film)
     if (!film) return
     const go = (e: KeyboardEvent) => e.code === 'KeyP' && useStore.getState().setMode(useStore.getState().mode === 'adventure' ? 'tour' : 'adventure')
-    let raf = 0, was = false
-    const poll = () => {
-      const pad = [...(navigator.getGamepads?.() ?? [])].find((p) => p?.connected)
-      const start = !!pad?.buttons[9]?.pressed
-      if (start && !was) useStore.getState().setMode(useStore.getState().mode === 'adventure' ? 'tour' : 'adventure')
-      was = start
-      raf = requestAnimationFrame(poll)
-    }
     window.addEventListener('keydown', go)
-    raf = requestAnimationFrame(poll)
-    return () => {
-      window.removeEventListener('keydown', go)
-      cancelAnimationFrame(raf)
-    }
+    return () => window.removeEventListener('keydown', go)
   }, [film])
+  // a controller drives the whole site (Start toggles Adventure Mode, including in ?film)
+  useEffect(() => startPadNav(), [])
   useEffect(() => {
     // Adventure Mode: the page stops scrolling and the tour text steps aside
     document.documentElement.classList.toggle('adventure', mode === 'adventure')
