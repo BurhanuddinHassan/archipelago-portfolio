@@ -10,7 +10,7 @@ walk and sail the archipelago yourself, with a keyboard or a game controller.
 Built for the Web3D course at NED University, and used as a real job-hunting portfolio.
 
 **Promo video (38 s):** https://youtu.be/LX2jkcONnhI. It also plays on the site's Trailer stop.
-**Source files** (After Effects project, rendered promo, Blender character file): [`source-files/`](source-files/).
+**Source files** (After Effects project, Blender character file): [`source-files/`](source-files/).
 
 ---
 
@@ -106,7 +106,6 @@ src/
   tour/                  the text panels, Harbor filter/search, Echo, contact form
 source-files/            for reviewers only, never deployed (see .vercelignore)
   promo.aep              After Effects project of the promo video
-  promo-final.mp4        the rendered promo (1080p, 38 s)
   Chibi_ME.blend         Blender file of the Pilot character
 public/
   models/                chibi_character.glb (the Pilot), props.glb (nature props)
