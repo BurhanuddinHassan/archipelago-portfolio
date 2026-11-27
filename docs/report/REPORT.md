@@ -374,13 +374,14 @@ no model is available, its citation renumbering and its refusal of forged assist
 | Islands, sky, clouds, ship, all landmarks | Generated in code for this project | — |
 | Pilot avatar | Base mesh from an AI image-to-3D tool, from my photo; rigged and animated with automated tools; prepared for the web by me (source: `source-files/Chibi_ME.blend`) | Mine |
 | Promo video | Designed and animated by me in After Effects; my photo, my games' gameplay footage | Mine |
-| Promo fonts: Playfair Display, Caveat, IM Fell English, Special Elite | Google Fonts (copies in `source-files/fonts/`) | SIL Open Font License |
+| Promo fonts: Playfair Display, Caveat, IM Fell English | Google Fonts (copies and licence in `source-files/fonts/`) | SIL Open Font License |
+| Promo font: Special Elite | Google Fonts, by Astigmatic (copy and licence in `source-files/fonts/`) | Apache 2.0 |
 | Promo soundtrack | `final-mix.wav` in the After Effects project | **[confirm source and licence]** |
 | Behind the Smile mask | My own Blockbench model from the game, converted to code | Mine |
 | Sound: wind, fireplace | felix.blume, inchadney (freesound.org) | CC0 |
 | Sound: stream | mystiscool (freesound.org) | CC BY 3.0 |
 | Sound: ship, melody, effects | Synthesised in code | — |
-| Draco decoder | Google | Apache 2.0 |
+| Draco decoder | Google (licence in `public/draco/LICENSE`) | Apache 2.0 |
 | Fonts: Inter, Fredoka | Google Fonts | SIL Open Font License |
 | Language model | Google Gemini API | Google API terms |
 
