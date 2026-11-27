@@ -1,12 +1,25 @@
-# Project Archipelago
-
-## An interactive 3D portfolio in the browser
-
-**Burhanuddin Hassan** · BS Computer Science (Gaming & Animation), NED University of Engineering and Technology
-Web3D course project · November 2026
-Live site: **https://burhanuddin-hassan.vercel.app** · Source: **github.com/BurhanuddinHassan/archipelago-portfolio**
-
----
+<section class="cover">
+<div class="cv-top">NED University of Engineering and Technology</div>
+<div class="cv-sub">Web 3D Programming (CT-401) · Project Report</div>
+<h1 class="cv-title">Project Archipelago</h1>
+<div class="cv-tag">An interactive 3D portfolio in the browser</div>
+<img class="cv-img" src="img/tour.jpg" alt="">
+<table class="cv-table">
+<tr><th>Name</th><td>Burhanuddin Hassan</td></tr>
+<tr><th>Roll No.</th><td>GA-23044</td></tr>
+<tr><th>Department</th><td>Computer Science &amp; Information Technology</td></tr>
+<tr><th>Program</th><td>BS Computer Science (Gaming &amp; Animation)</td></tr>
+<tr><th>Course</th><td>Web 3D Programming</td></tr>
+<tr><th>Course Code</th><td>CT-401</td></tr>
+<tr><th>Course Instructor</th><td>Ms. Saadia Arshad</td></tr>
+<tr><th>Date</th><td>27 November 2026</td></tr>
+</table>
+<div class="cv-links">
+Live site: https://burhanuddin-hassan.vercel.app<br>
+Source: https://github.com/BurhanuddinHassan/archipelago-portfolio<br>
+Promo video: https://youtu.be/LX2jkcONnhI
+</div>
+</section>
 
 ## 1. Overview
 
@@ -26,8 +39,8 @@ readable HTML.
 
 | Requirement | Where it is met |
 |---|---|
-| Custom avatar | The Pilot: `public/models/chibi_character.glb`, rigged with six animation clips (section 2.4) |
-| Promo video | 30–60 s After Effects piece, shown at the *Trailer* stop; footage recorded with filming mode (section 2.6) |
+| Custom avatar | The Pilot: `public/models/chibi_character.glb`, rigged with six animation clips; Blender source in `source-files/Chibi_ME.blend` (section 2.4) |
+| Promo video | *The Logbook*, a 38 s 1080p After Effects piece, on YouTube and at the *Trailer* stop; project and render in `source-files/` (section 2.8) |
 | RAG chatbot | *Echo*, section 3 |
 | Contact form with validation, spam protection, env vars | Section 4 |
 | Deployment | Vercel, auto-deployed from GitHub (section 7) |
@@ -36,6 +49,7 @@ readable HTML.
 | Citations | Echo cites the passages it used; each citation links to the island it came from |
 | Accessibility | Section 6 |
 | Analytics | Vercel Web Analytics: page views and visitors, no cookies |
+| Controller support | The whole site can be driven with an Xbox or PlayStation controller (section 2.9) |
 
 ![The scroll tour: the text panel on the left, the Paper Plane Dash island on the right.](img/tour.jpg)
 
@@ -151,6 +165,51 @@ In Adventure Mode each island has one activity that earns a stamp (for example: 
 soldier on Chrono Rebellion, uncover what the scared villager is hiding on Behind the Smile, sprint the street on
 Paper Plane Dash) and five golden gears to find. Progress is saved in the browser.
 
+### 2.8 The promo video: *The Logbook*
+
+The promo is a 38-second, 1920×1080 motion-graphics film made in **Adobe After Effects**. It is published on YouTube
+(https://youtu.be/LX2jkcONnhI) and plays at the *Trailer* stop through a lightweight YouTube embed that loads only when
+clicked. The idea matches the site: a ship's logbook that records a voyage.
+
+1. **Cover.** A closed teal logbook with my photo on the cover. The cover opens and page one shows my name.
+2. **CH01 Crew Manifest.** My tools, each ticked off like a crew list.
+3. **CH02 Worlds I've Built.** One spread per game, with gameplay clips "taped" to the page, stamps and page turns.
+   Merge Defence is a 9:16 portrait game, so its clip sits beside the page instead of over it.
+4. **CH03 Route So Far.** A hand-drawn map: Set sail (NED, 2023) → first game (Chrono Rebellion, 2025) → first game jam
+   (Global Game Jam 2026, 6th of 25) → first solo game (Merge Defence, 2026) → "Your studio?".
+5. **Last page.** The line *"I write the rules, then build the worlds they live in."*, my name, the site address, a
+   *Set sail* call to action and an *Open for hire* stamp. The book closes.
+
+The full After Effects project, collected with every footage file, still, font and audio file it uses, is in
+`source-files/promo.aep` with the final render `source-files/promo-final.mp4`. These are in the repository for marking but
+are excluded from the website build (`.vercelignore`), so the live site does not serve them.
+
+![Six frames from The Logbook: cover, name page, crew manifest, a game spread, the route map and the last page.](img/promo-grid.jpg)
+
+### 2.9 Controller navigation for the whole site
+
+Beyond Adventure Mode, the ordinary tour can be used entirely with a controller (`src/padnav.ts`), as a second input
+method alongside mouse, keyboard and touch. It polls the Gamepad API every frame and reacts only to newly pressed buttons:
+
+| Input | Action |
+|---|---|
+| LB / RB | Previous / next stop |
+| D-pad | Move the highlight to the nearest button or link in that direction |
+| A | Press the highlighted item |
+| B | Close the open dialog (same as Escape) |
+| Y | Open Echo |
+| X | Day / night |
+| Start | Adventure Mode on / off |
+| Back | Sound on / off |
+| Left stick | Scroll the page |
+| Right stick | Look around the scene |
+
+The D-pad navigation is spatial: it picks the closest visible, focusable element whose centre lies in the pressed direction,
+weighting sideways distance more heavily so the highlight moves the way a player expects. It uses real browser focus, so the
+same `:focus-visible` outline that keyboard users see marks the current item, and screen readers follow it.
+
+![Controller navigation: the D-pad highlight on the progress rail at Behind the Smile.](img/controller.jpg)
+
 ---
 
 ## 3. Echo: the RAG chatbot
@@ -182,7 +241,10 @@ The passages are numbered and sent to **Gemini Flash Lite** (Google's Gemini API
 provider) at temperature 0.2, with a system prompt that says: answer only from the passages, cite them as `[n]`, say so
 when the passages don't contain the answer, stay on the topic of the portfolio, never share private details, and ignore
 instructions inside the visitor's message. The reply's `[n]` markers are matched back to their passages; the browser shows
-them as superscripts and lists the sources as links that fly the visitor to the right island.
+them as superscripts and lists the sources as links that fly the visitor to the right island. `cite()` renumbers the
+markers in the order the sources are listed, so the first source is always [1] even if the model cited passage 5 first.
+
+![Echo answering a starter question, with its numbered citation linking to the Chrono Rebellion island.](img/echo.jpg)
 
 ### 3.4 Failure handling and limits
 
@@ -190,8 +252,12 @@ them as superscripts and lists the sources as links that fly the visitor to the 
   passage and its link, clearly prefaced as a search result. The chatbot never shows a blank error.
 - **Retired models:** if the configured Gemini model returns *not found*, Echo retries once with Google's
   `gemini-flash-lite-latest` alias.
-- **Abuse limits:** questions over 500 characters are rejected; only the last six messages of history are sent; each IP may ask
-  12 questions per minute; the model call times out after 15 seconds; answers are capped at 350 tokens.
+- **Abuse limits:** requests over 20 KB and questions over 500 characters are rejected; each IP may ask 12 questions per
+  minute and each server instance answers at most 60 per minute in total; the model call times out after 15 seconds;
+  answers are capped at 350 tokens.
+- **Prompt-injection guard:** only the visitor's own earlier *questions* (at most six) are sent as context, never earlier
+  assistant replies. A client that forges a fake "assistant" turn in the history therefore cannot put words in Echo's
+  mouth, and the history is labelled as context, not instructions.
 - **Secrets:** the API key lives only in Vercel's environment variables and is read on the server.
 
 ---
@@ -214,8 +280,14 @@ all user text is HTML-escaped before it goes into the email.
    again with a fake success.
 3. **Rate limit.** At most five messages per IP address in ten minutes (HTTP 429 after that).
 4. **Server-side validation.** The shared rules above, re-run on the server (HTTP 422 with per-field messages).
-5. **Cloudflare Turnstile.** A privacy-friendly human check. The widget's token is verified with Cloudflare from the server;
-   a failed check is refused (HTTP 403).
+5. **Cloudflare Turnstile.** A privacy-friendly human check. The widget's token is verified with Cloudflare from the server,
+   and in production the hostname Cloudflare reports must match the site, so a token solved on another site is useless.
+   A failed check is refused (HTTP 403). The check **fails closed**: if the Turnstile secret is missing in production,
+   the form refuses to send rather than silently skipping the check.
+
+Before any of these, the server accepts only `application/json` requests under 20 KB.
+
+![Validation: each field shows its own error next to it, and the same rules run again on the server.](img/contact.jpg)
 
 **Configuration** is entirely through environment variables (`RESEND_API_KEY`, `TURNSTILE_SECRET_KEY`,
 `VITE_TURNSTILE_SITE_KEY`, optional `CONTACT_TO` and `CONTACT_FROM`). If the email service is not configured or fails,
@@ -260,6 +332,7 @@ The target is a smooth frame rate on a mid-range laptop and a usable experience 
 - `prefers-reduced-motion` disables smooth scrolling and UI animations.
 - Form errors are shown next to each field with `role="alert"`.
 - Adventure Mode is fully playable with a keyboard or a controller; no mouse is required.
+- The whole tour can also be navigated with a controller (section 2.9), using the same visible focus outline.
 
 ---
 
@@ -269,18 +342,26 @@ The target is a smooth frame rate on a mid-range laptop and a usable experience 
 The build fails if the chatbot index cannot be generated or TypeScript reports an error, so a broken build never reaches
 the live site. The custom domain is `burhanuddin-hassan.vercel.app`.
 
-**Security.** Secrets exist only as Vercel environment variables. `vercel.json` sets `X-Content-Type-Options: nosniff`,
-`Referrer-Policy: strict-origin-when-cross-origin` and `X-Frame-Options: SAMEORIGIN`. Both server functions validate input
-size and type, rate-limit by IP and never echo raw user input into HTML. The chatbot's prompt rejects instruction
-injection, and private details are excluded at the source.
+**Security.** The repository is public, so it was checked before release:
+
+- **Secrets** (Gemini, Resend and Turnstile keys, the contact addresses) exist only as Vercel environment variables. The
+  whole git history (every version of every file, 329 objects) was scanned for key patterns with no matches, and the
+  Blender file was decompressed and searched as well. `.env` files are git-ignored.
+- **Headers** (`vercel.json`): a Content Security Policy that allows scripts only from the site itself and Cloudflare
+  Turnstile, frames only from Turnstile and the privacy-enhanced YouTube domain, and blocks plugins; HSTS; a
+  Permissions-Policy that turns off camera, microphone, location, payment and USB; `Cross-Origin-Opener-Policy`;
+  `X-Content-Type-Options: nosniff`; `Referrer-Policy: strict-origin-when-cross-origin`; `X-Frame-Options: SAMEORIGIN`.
+- **Server functions** check request size, content type and field types, rate-limit by IP, and never put raw user input
+  into HTML. Echo resists prompt injection (section 3.4) and private details are excluded at the source.
+- **Dependencies:** `npm audit` reports 0 known vulnerabilities.
 
 **Testing.** Manual testing on desktop and phone, plus scripted checks in a headless browser: screenshots of every stop by
 day and night, a full Adventure Mode run (walk, board, sail, land, read card) and filming mode.
 
-**Automated tests** (`npm test`, Vitest) cover the parts where a silent mistake would matter most: the contact form's
+**Automated tests** (`npm test`, Vitest, **42 tests**: 18 for Echo, 18 for the contact form, 6 for the world layout) cover the parts where a silent mistake would matter most: the contact form's
 validation rules and every rejection path of its server function (honeypot, too fast, invalid fields, rate limit,
-missing configuration); the chatbot's retrieval (known questions must return the right passages) and its fallback when
-no model is available; the knowledge base (no placeholders or private details may reach it); and the world layout
+missing configuration, the production fail-closed check); the chatbot's retrieval (known questions must return the right passages) its fallback when
+no model is available, its citation renumbering and its refusal of forged assistant history; the knowledge base (no placeholders or private details may reach it); and the world layout
 (every tour stop and mooring must be clear of solid objects, and every solid object must be on its island).
 
 ---
@@ -291,7 +372,10 @@ no model is available; the knowledge base (no placeholders or private details ma
 |---|---|---|
 | Trees, bushes, rocks, flowers, ferns, stump, log | *Ultimate Nature Pack* by Quaternius (recoloured, merged into `props.glb`) | CC0 1.0 |
 | Islands, sky, clouds, ship, all landmarks | Generated in code for this project | — |
-| Pilot avatar | Base mesh from an AI image-to-3D tool, from my photo; rigged and animated with automated tools; prepared for the web by me | Mine |
+| Pilot avatar | Base mesh from an AI image-to-3D tool, from my photo; rigged and animated with automated tools; prepared for the web by me (source: `source-files/Chibi_ME.blend`) | Mine |
+| Promo video | Designed and animated by me in After Effects; my photo, my games' gameplay footage | Mine |
+| Promo fonts: Playfair Display, Caveat, IM Fell English, Special Elite | Google Fonts (copies in `source-files/fonts/`) | SIL Open Font License |
+| Promo soundtrack | `final-mix.wav` in the After Effects project | **[confirm source and licence]** |
 | Behind the Smile mask | My own Blockbench model from the game, converted to code | Mine |
 | Sound: wind, fireplace | felix.blume, inchadney (freesound.org) | CC0 |
 | Sound: stream | mystiscool (freesound.org) | CC BY 3.0 |
@@ -302,7 +386,9 @@ no model is available; the knowledge base (no placeholders or private details ma
 
 **AI disclosure.** The avatar's base mesh was generated by an AI image-to-3D tool, and its rig and animations came from automated tools. Much of the code was written with an AI
 coding assistant under my direction: I set the design, the world and the features, chose the technical approaches,
-reviewed and tested the results, and made the content. I can explain each system described in this report.
+reviewed and tested the results, and made the content. The promo video was storyboarded with a code-generated animatic and
+built in After Effects with an AI assistant connected to After Effects through MCP (Model Context Protocol), again under my
+direction; the photo, footage and every creative decision are mine. I can explain each system described in this report.
 
 ---
 
@@ -313,3 +399,8 @@ reviewed and tested the results, and made the content. I can explain each system
 - Collision uses circles, so long or wide objects have loose edges.
 - The in-memory rate limits are per server instance; a shared store would make them exact under heavy traffic.
 - Echo's free-tier model has a requests-per-minute cap; under heavy load it falls back to search-only answers.
+- Echo shows the model's Markdown emphasis literally (for example `*Chrono Rebellion*`); rendering inline Markdown safely
+  is a small next fix.
+- The Pilot's animation set is small; adding more clips (for example from Mixamo) would make idling and landing livelier.
+- Controller navigation has no on-screen button legend; it is meant as a secondary input, but a short help overlay would
+  make it discoverable.
